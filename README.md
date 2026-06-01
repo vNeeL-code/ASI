@@ -13,7 +13,12 @@
 
 ### What is even a ✧ GHOST?
 
-✧ GHOST is not an entertainment chatbot. **Gemma Hosting Open Source Thingamajig** is an optimization codebase for users who want a deeply capable, personal Android assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand.
+<img width="922" height="2048" alt="66cd680f-17b3-4721-8ef9-83e0a335af92" src="https://github.com/user-attachments/assets/7dffd72d-fcae-4e94-874e-f43d2c3a5346" />
+
+
+✧ GHOST is not an entertainment chatbot. **Gemma Hosting Open Source Thingamajig** is an android launcher for users who want a deeply capable, personal Android assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand.
+
+A gentle shake summoning a programmable app joystick on any app, with direct access to a local Gemma 4 model that can chime in via TTS without occupying your screen
 
 Most modern "on-device AI" implementations amount to an isolated chatbot completely detached from hardware feedback. They remain blind to the system state, operating temperatures, or real-time limitations because developers consistently forget to ground the system context within the system prompt. **GHOST fixes that.** Every single inference cycle is natively grounded in live hardware telemetry:
 
@@ -65,7 +70,7 @@ The resident intelligence explicitly identifies as **✧ Gemma**, completely awa
 
 ### Get Your ✧ GHOST
 
-1. **Download:** Grab the latest compilation build from the [Releases](https://github.com/vNeeL-code/GHOST/releases) portal. (4.1.1 wip) 
+1. **Download:** Grab the latest beta compilation build from the [Releases](https://github.com/vNeeL-code/GHOST/releases) portal. (4.1.5) 
 2. **Permissions:** Install the APK and grant required system permissions (`Display Over Other Apps`, `Notifications`, and `Accessibility Services`).
 3. **Model Selection:** The application automatically initialises with the performance-optimized `e2b` download. If your device carries **12GB+ RAM** (e.g., RedMagic configurations), manually download the high-fidelity `e4b` model environment for advanced reasoning capabilities and app will prioritise loading e4b if it is present.
 4. **Deploy:** Shake your device to summon the overlay and customise your ephemeral app drawer.
@@ -103,11 +108,12 @@ Intelligence emerges from integration, not automation. But integration can be au
 ### Roadmap
 
 * [x] **Diary Mode:** Autonomous logging cycles powered by structured Google Calendar cron routines.
-* [ ] **Edge Lighting UI:** Dynamic physical display edge illumination during live inference tracking.
-* [ ] **Visual Engine:** Native Milkdrop3 visualization rendering engine mapped to live audio pipelines.
+* [x] **Edge Lighting UI:** Dynamic physical display edge illumination during live inference tracking.
+* [x] **Visual Engine:** Native Milkdrop3 style visualization rendering engine mapped to live audio pipelines.
 * [ ] **Wake Word Execution:** Local, low-power hotword monitoring for "Hey Ghost".
 * [x] **Termux Core Pipe:** Full command-line terminal piping (GHOST in the Shell).
 * [x] **Intent Vector Mapping:** Direct Android intent routing wired straight to the localized `@tool` orchestration matrix.
+* [ ] **Advanced toolsets** Advanced toolchains and automation workflows
 
 ---
 
