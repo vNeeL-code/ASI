@@ -13,10 +13,9 @@
 
 ### What is even a ✧ GHOST?
 
-<img width="922" height="2048" alt="66cd680f-17b3-4721-8ef9-83e0a335af92" src="https://github.com/user-attachments/assets/7dffd72d-fcae-4e94-874e-f43d2c3a5346" />
+<img width="922" height="2048" alt="79d2f510-91ed-425f-bdc1-ced18055c1e2" src="https://github.com/user-attachments/assets/f2b9fc5b-c454-42ac-a5a7-dd6123175c84" />
 
-
-✧ GHOST is not an entertainment chatbot. **Gemma Hosting Open Source Thingamajig** is an android launcher for users who want a deeply capable, personal Android assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand.
+✧ GHOST is not an entertainment chatbot. **Gemma Hosting Open Source Thingamajig** is an AI powered android launcher for users who want a deeply capable, personal Android assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
 
 A gentle shake summoning a programmable app joystick on any app, with direct access to a local Gemma 4 model that can chime in via TTS without occupying your screen
 
