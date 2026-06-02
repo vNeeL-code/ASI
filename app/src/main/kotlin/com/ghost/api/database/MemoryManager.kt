@@ -5,11 +5,31 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class MemoryManager(context: Context) {
+class MemoryManager(private val context: Context) {
 
     private val db = OracleDatabase.getDatabase(context)
     private val conversationDao = db.conversationDao()
     private val diaryDao = db.diaryDao()
+    
+    private val sessionMemoryFile = java.io.File(context.filesDir, "session_memory.txt")
+
+    suspend fun getCompactedSessionMemory(): String = withContext(Dispatchers.IO) {
+        if (sessionMemoryFile.exists()) {
+            sessionMemoryFile.readText()
+        } else {
+            ""
+        }
+    }
+
+    suspend fun updateCompactedSessionMemory(newMemory: String) = withContext(Dispatchers.IO) {
+        sessionMemoryFile.writeText(newMemory)
+    }
+
+    suspend fun clearSessionMemory() = withContext(Dispatchers.IO) {
+        if (sessionMemoryFile.exists()) {
+            sessionMemoryFile.delete()
+        }
+    }
 
     suspend fun storeTurn(turn: ConversationTurn) = withContext(Dispatchers.IO) {
         conversationDao.insertTurn(turn)

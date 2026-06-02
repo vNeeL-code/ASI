@@ -695,10 +695,38 @@ class KoogAgent(
             
             _conversationHistory.add(Message(role = "assistant", content = response))
 
-            // 8. Auto-flush KV cache (Optimized: 30 turns instead of 15)
+            // 8. Auto-flush KV cache with Synchronous Compaction (Optimized: 30 turns instead of 15)
             if (turnCount > 0 && turnCount % 30 == 0) {
-                Timber.i("🧹 Auto-flushing KV cache at turn $turnCount to prevent slowdown")
+                Timber.i("🌀 Auto-flushing KV cache and Compacting Memory at turn $turnCount")
                 try {
+                    // Show a dramatic block to the user
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(this@KoogAgent.context, "🟢 Memory is the key... Compacting KV Cache.", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                    
+                    val memoryManager = com.ghost.api.database.MemoryManager(this@KoogAgent.context)
+                    val oldMemory = memoryManager.getCompactedSessionMemory()
+                    
+                    // Grab everything EXCEPT the last 10 messages (which we want to keep intact)
+                    val messagesToCompact = synchronized(_conversationHistory) {
+                        if (_conversationHistory.size > 10) {
+                            val target = _conversationHistory.dropLast(10)
+                            target
+                        } else emptyList()
+                    }
+                    
+                    if (messagesToCompact.isNotEmpty()) {
+                        val newMemory = SessionMemoryCompactor.compactOldMessages(messagesToCompact, oldMemory, llmEngine)
+                        memoryManager.updateCompactedSessionMemory(newMemory)
+                        
+                        // Prune history to just the last 10 intact messages
+                        synchronized(_conversationHistory) {
+                            val recent = _conversationHistory.takeLast(10)
+                            _conversationHistory.clear()
+                            _conversationHistory.addAll(recent)
+                        }
+                    }
+
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
                     llmEngine.softReset(systemPrompt)
                     turnsSinceKvFlush = 0
@@ -755,12 +783,7 @@ class KoogAgent(
                 }
             }
 
-            // 11. Async Housekeeping (Background semantic handover)
-            agentScope.launch {
-                if (_conversationHistory.size > 40) {
-                    compressHistory()
-                }
-            }
+            // 11. Async Housekeeping complete
 
             Timber.i("✅ KoogAgent: Turn $turnCount complete!")
 
@@ -1072,7 +1095,11 @@ class KoogAgent(
     fun getSystemPrompt(): String = buildSystemPrompt()
 
     private fun buildSystemPrompt(): String {
-        return contextManager.buildSystemPrompt(rollingMemoryJson, skillManager)
+        val basePrompt = contextManager.buildSystemPrompt(rollingMemoryJson, skillManager)
+        val memoryManager = com.ghost.api.database.MemoryManager(this@KoogAgent.context)
+        val oldMemory = kotlinx.coroutines.runBlocking { memoryManager.getCompactedSessionMemory() }
+        val longTermMemoryPatch = if (oldMemory.isNotBlank()) "\n\n[LONG TERM SESSION MEMORY]\n$oldMemory\n[/LONG TERM SESSION MEMORY]\n" else ""
+        return longTermMemoryPatch + basePrompt
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -1083,83 +1110,6 @@ class KoogAgent(
      * Goal-Aware History Compression.
      * Preserves the "Initial Goal" (Turn 0-1) and the "Recent Context" (Last 6-8).
      * This creates a 'seam' that maintains long-term memory during KV flushes.
-     */
-    /**
-     * Semantic Compression: Distill session facts into JSON
-     */
-    private suspend fun compressHistory() {
-        val historySize = synchronized(_conversationHistory) { _conversationHistory.size }
-        if (historySize < 20) return
-
-        Timber.i("🧠 Context Saturated: Triggering Semantic Handover...")
-        
-        try {
-            // 1. Summarize
-            val summaryJson = summarizeSession()
-            if (summaryJson.isNotBlank()) {
-                rollingMemoryJson = summaryJson
-                callbacks?.writeDiaryEntry("STATE_HANDOVER", "Session distilled: $summaryJson", "N/A")
-            }
-
-            // 2. Perform Soft Reset with new System Prompt (seeds fresh KV cache)
-            // CRITICAL: Must include rolling memory to prevent 'drift' after compression
-            val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
-            llmEngine.softReset(systemPrompt)
-            
-            // 3. Prune history to just the last 4 turns (plus the new summary injection)
-            synchronized(_conversationHistory) {
-                val recent = _conversationHistory.takeLast(4)
-                _conversationHistory.clear()
-                _conversationHistory.add(Message(role = "system", content = "[Memory Consolidated: Previous turns archived in State JSON]"))
-                _conversationHistory.addAll(recent)
-            }
-            
-            Timber.d("✅ Semantic Handover complete. Fresh KV cache seeded.")
-        } catch (e: Exception) {
-            Timber.e(e, "Semantic compression failed (Pruning fallback)")
-            // Fallback to simple prune
-            synchronized(_conversationHistory) {
-                if (_conversationHistory.size > 8) {
-                    val recent = _conversationHistory.takeLast(6)
-                    _conversationHistory.clear()
-                    _conversationHistory.addAll(recent)
-                }
-            }
-        }
-    }
-
-    private suspend fun summarizeSession(): String {
-        val history = synchronized(_conversationHistory) {
-            _conversationHistory.joinToString("\n") { "${it.role.uppercase()}: ${it.content}" }
-        }
-
-        val summaryPrompt = """# SELF-REFLECTION: STATE CONSOLIDATION
-Read the conversation history above. Distill the current session into a concise JSON block.
-Include:
-1. Entities: Important people/places/items mentioned.
-2. Facts: New information learned about the user or environment.
-3. Pending_Tasks: Unfinished requests or goals.
-
-Format: {"entities":[], "facts":[], "pending_tasks":[]}
-OUTPUT ONLY THE JSON. NO PREAMBLE.
-"""
-
-        // Use think() specifically for this background task
-        return think(
-            context = "Previous Session Context:\n$history",
-            userMessage = summaryPrompt,
-            images = null,
-            audio = null
-        ).trim().let { response ->
-            // Basic JSON extraction cleanup
-            if (response.contains("{") && response.contains("}")) {
-                response.substring(response.indexOf("{"), response.lastIndexOf("}") + 1)
-            } else response
-        }
-    }
-
-    /**
-     * Builds a string of the last 3 turns (6 messages) to inject into the KV cache
      * during soft resets, preventing amnesia on cold boots or auto-flushes.
      */
     private fun getRollingMemoryString(): String {
