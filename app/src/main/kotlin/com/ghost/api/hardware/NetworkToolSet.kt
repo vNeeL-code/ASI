@@ -131,16 +131,17 @@ class NetworkToolSet(private val context: Context) : ToolSet {
 
     private fun parseDuckDuckGoLiteResults(html: String, maxResults: Int): List<SearchResult> {
         val results = mutableListOf<SearchResult>()
-        // Parse the table structure of lite.duckduckgo.com
-        val titlePattern = Regex("""<a rel="nofollow" href="([^"]+)" class='result-link'>([^<]+)</a>""")
-        val snippetPattern = Regex("""<td class='result-snippet'>([\s\S]*?)</td>""")
+        // Parse the table structure of lite.duckduckgo.com using more robust regex
+        val titlePattern = Regex("""<a[^>]*?href=["']([^"']+)["'][^>]*?class=["']result-link["'][^>]*?>([\s\S]*?)</a>""")
+        val snippetPattern = Regex("""class=["']result-snippet["'][^>]*?>([\s\S]*?)</td>""")
 
         val titles = titlePattern.findAll(html).toList()
         val snippets = snippetPattern.findAll(html).toList()
 
         for (i in 0 until minOf(titles.size, snippets.size, maxResults)) {
             val url = titles[i].groupValues[1]
-            val title = titles[i].groupValues[2].trim()
+            val rawTitle = titles[i].groupValues[2]
+            val title = rawTitle.replace(Regex("<[^>]+>"), "").trim()
             val rawSnippet = snippets[i].groupValues[1]
             val snippet = rawSnippet.replace(Regex("<[^>]+>"), "").trim()
             results.add(SearchResult(title, snippet, url))

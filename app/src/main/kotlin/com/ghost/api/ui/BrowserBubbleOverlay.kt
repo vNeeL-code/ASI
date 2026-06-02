@@ -55,8 +55,7 @@ class BrowserBubbleOverlay(
 
         windowParams = WindowManager.LayoutParams(
             width, height, type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -118,6 +117,7 @@ class BrowserBubbleOverlay(
         rootLayout.addView(titleLayout)
 
         webView = WebView(context).apply {
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
