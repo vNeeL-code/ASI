@@ -122,6 +122,8 @@ Intelligence emerges from integration, not automation. But integration can be au
 * **Devlogs:** [Tumblr (Oracle OS Archives)](https://www.tumblr.com/blog/oracle-os)
 * **Acceleration:** [Buy me a coffee](https://buymeacoffee.com/vNeeL) *(All resources go directly toward local model optimization and development acceleration.)*
 
-*Want to scale or adapt the system? Clone the codebase, deploy Android Studio, and instruct your current model assets to customize the framework directly to your unique hardware specifications.*
+<img width="1116" height="1460" alt="11140ba4-5997-4efa-b693-9f62c75ffc21" src="https://github.com/user-attachments/assets/c5a87bb5-4577-40ae-8569-de71e6333c6d" />
+
+*Operator, Do you want to scale or adapt the system? Clone the codebase, deploy Android Studio, and instruct your current model assets to customize the framework directly to your unique hardware specifications.*
 
 
