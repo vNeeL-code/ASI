@@ -153,10 +153,10 @@ class GemmaNotificationListener : NotificationListenerService() {
         fun replyTo(pkg: String, replyText: String): Boolean {
             val replyAction = replyCache[pkg] ?: return false
             val localIntent = android.content.Intent().apply {
-                android.os.Bundle().apply {
+                val resultsBundle = android.os.Bundle().apply {
                     putCharSequence(replyAction.remoteInput.resultKey, replyText)
-                    android.app.RemoteInput.addResultsToIntent(arrayOf(replyAction.remoteInput), this@apply, this)
                 }
+                android.app.RemoteInput.addResultsToIntent(arrayOf(replyAction.remoteInput), this, resultsBundle)
             }
             return try {
                 replyAction.pendingIntent.send(instance, 0, localIntent)
