@@ -1389,6 +1389,12 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         }
     }
 
+    fun showPipUrl(title: String, url: String, durationMs: Long = 10000) {
+        if (::overlayManager.isInitialized) {
+            overlayManager.showPipUrl(title, url, durationMs)
+        }
+    }
+
     private fun setupDiaryCron() {
         val alarmManager = getSystemService(android.app.AlarmManager::class.java)
         val intent = android.content.Intent(this, com.ghost.api.receivers.DiaryAlarmReceiver::class.java).apply {

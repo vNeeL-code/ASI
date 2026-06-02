@@ -50,8 +50,8 @@ class BrowserBubbleOverlay(
         }
 
         val metrics = context.resources.displayMetrics
-        val width = (metrics.widthPixels * 0.45).toInt()
-        val height = (metrics.heightPixels * 0.35).toInt()
+        val width = (metrics.widthPixels * 0.90).toInt()
+        val height = (metrics.widthPixels * 0.50).toInt()
 
         windowParams = WindowManager.LayoutParams(
             width, height, type,
@@ -59,8 +59,7 @@ class BrowserBubbleOverlay(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 32
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = 120
         }
 
@@ -142,8 +141,8 @@ class BrowserBubbleOverlay(
         addView(rootLayout)
 
         var isExpanded = false
-        val defaultWidth = (metrics.widthPixels * 0.45).toInt()
-        val defaultHeight = (metrics.heightPixels * 0.35).toInt()
+        val defaultWidth = (metrics.widthPixels * 0.90).toInt()
+        val defaultHeight = (metrics.widthPixels * 0.50).toInt()
         val expandedWidth = (metrics.widthPixels * 0.90).toInt()
         val expandedHeight = (metrics.heightPixels * 0.80).toInt()
 
@@ -166,6 +165,13 @@ class BrowserBubbleOverlay(
         post {
             titleBar.text = title
             webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+        }
+    }
+
+    fun loadUrl(title: String, url: String) {
+        post {
+            titleBar.text = title
+            webView.loadUrl(url)
         }
     }
 

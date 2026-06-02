@@ -698,7 +698,7 @@ class KoogAgent(
             _conversationHistory.add(Message(role = "assistant", content = response))
 
             // 8. Auto-flush KV cache (Optimized: 30 turns instead of 15)
-            if (turnCount > 0 && turnCount % 30 == 0) {
+            if (turnCount > 0 && turnCount % 15 == 0) {
                 Timber.i("🧹 Auto-flushing KV cache at turn $turnCount to prevent slowdown")
                 try {
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
@@ -1053,7 +1053,7 @@ class KoogAgent(
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
                     llmEngine.softReset(systemPrompt)
                     
-                    skipNextRecap = true
+                    skipNextRecap = false
                     turnsSinceKvFlush = 0
                     return think(context, userMessage, images, audio, retryCount = 1)
                 } else {
@@ -1078,7 +1078,7 @@ class KoogAgent(
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
                     llmEngine.softReset(systemPrompt)
                     
-                    skipNextRecap = true
+                    skipNextRecap = false
                     turnsSinceKvFlush = 0
                     return think(context, userMessage, images, audio, retryCount = 1)
                 } catch (e2: Exception) {
@@ -1228,4 +1228,6 @@ OUTPUT ONLY THE JSON. NO PREAMBLE.
             .trim()
     }
 }
+
+
 
