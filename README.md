@@ -113,6 +113,7 @@ Intelligence emerges from integration, not automation. But integration can be au
 * [x] **Termux Core Pipe:** Full command-line terminal piping (GHOST in the Shell).
 * [x] **Intent Vector Mapping:** Direct Android intent routing wired straight to the localized `@tool` orchestration matrix.
 * [ ] **Advanced toolsets** Advanced toolchains and automation workflows
+* [ ] **App store release** 🦕💭 ''I need about tree fiddy''
 
 ---
 
