@@ -187,9 +187,7 @@ class KoogAgent(
     private var turnsSinceKvFlush: Int get() = _turnsSinceKvFlush.get(); set(value) { _turnsSinceKvFlush.set(value) }
 
     // Skip recap injection turn after stuck-loop flush
-    private val _skipNextRecap = java.util.concurrent.atomic.AtomicBoolean(false)
-    private var skipNextRecap: Boolean get() = _skipNextRecap.get(); set(value) { _skipNextRecap.set(value) }
-
+    
     private val checkpointFile: File
         get() = File(checkpointDir, "koog_agent_checkpoint.json")
     
@@ -698,7 +696,7 @@ class KoogAgent(
             _conversationHistory.add(Message(role = "assistant", content = response))
 
             // 8. Auto-flush KV cache (Optimized: 30 turns instead of 15)
-            if (turnCount > 0 && turnCount % 15 == 0) {
+            if (turnCount > 0 && turnCount % 30 == 0) {
                 Timber.i("🧹 Auto-flushing KV cache at turn $turnCount to prevent slowdown")
                 try {
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
@@ -978,30 +976,11 @@ class KoogAgent(
 
         // KV cache holds conversation history natively.
         // We only inject context (body/sensors) here. 
-        // OPTIMIZATION: Zero redundant history recap unless KV cache was just flushed.
-        var historyRecap = ""
-        if (turnsSinceKvFlush == 0 && !skipNextRecap) {
-            val recentHistory = synchronized(_conversationHistory) { _conversationHistory.takeLast(6) }
-            if (recentHistory.isNotEmpty()) {
-                val sb = java.lang.StringBuilder()
-                sb.append("[SYSTEM: KV Cache Flushed. Restoring recent context:]\n")
-                recentHistory.forEach { msg ->
-                    sb.append("${msg.role.replaceFirstChar { it.uppercase() }}: ${msg.content}\n")
-                }
-                sb.append("[/RESTORED CONTEXT]\n\n")
-                historyRecap = sb.toString()
-                Timber.i("Stitching ${recentHistory.size} messages back into context after KV flush")
-            }
-        }
 
-        if (skipNextRecap) {
-            skipNextRecap = false
-            Timber.d("think(): Skipped recap after stuck-loop flush")
-        }
         _turnsSinceKvFlush.incrementAndGet()
 
         val contextBlock = contextManager.buildContext()
-        val fullPrompt = "$historyRecap$contextBlock\n$userMessage"
+        val fullPrompt = "$contextBlock\n$userMessage"
         
         // Proactive Smooth Restart: Flush KV cache if context is saturating (Approx 10 turns)
         // Removed: Proactive Smooth Restart (It was destroying KV cache and causing 20s latency)
@@ -1053,7 +1032,6 @@ class KoogAgent(
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
                     llmEngine.softReset(systemPrompt)
                     
-                    skipNextRecap = false
                     turnsSinceKvFlush = 0
                     return think(context, userMessage, images, audio, retryCount = 1)
                 } else {
@@ -1078,7 +1056,6 @@ class KoogAgent(
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
                     llmEngine.softReset(systemPrompt)
                     
-                    skipNextRecap = false
                     turnsSinceKvFlush = 0
                     return think(context, userMessage, images, audio, retryCount = 1)
                 } catch (e2: Exception) {
@@ -1228,6 +1205,9 @@ OUTPUT ONLY THE JSON. NO PREAMBLE.
             .trim()
     }
 }
+
+
+
 
 
 
