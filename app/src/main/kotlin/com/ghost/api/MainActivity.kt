@@ -235,43 +235,183 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         
         findViewById<TextView>(R.id.btnSparkle)?.setOnClickListener { imagePicker.launch("image/*") }
         val btnDropdown = findViewById<TextView>(R.id.btnMinimize)
-        btnDropdown?.setOnClickListener { view ->
-            val popup = android.widget.PopupMenu(this, view)
-            popup.menu.apply {
-                add(0, 1, 0, "Transparent Wallpaper")
-                add(0, 2, 0, "Edge Lights")
-                add(0, 3, 0, "Milkdrop Wallpaper")
-                add(0, 4, 0, "Passive Notification TTS")
-                add(0, 5, 0, "Mute TTS")
-                add(0, 6, 0, "Internal Diary")
-                add(0, 7, 0, "Minimize")
-            }
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> {
-                        // Direct intent to wallpaper service — not a model prompt
-                        sendBroadcast(Intent(this@MainActivity, com.ghost.api.hardware.HardwareToggleReceiver::class.java).apply { action = "com.ghost.api.ACTION_SET_TRANSPARENT_WALLPAPER" })
-                        true
-                    }
-                    2 -> {
-                        sendBroadcast(Intent(this@MainActivity, com.ghost.api.hardware.HardwareToggleReceiver::class.java).apply { action = "com.ghost.api.ACTION_TOGGLE_EDGE_LIGHTS" })
-                        true
-                    }
-                    3 -> {
-                        sendBroadcast(Intent(this@MainActivity, com.ghost.api.hardware.HardwareToggleReceiver::class.java).apply { action = "com.ghost.api.ACTION_SET_MILKDROP_WALLPAPER" })
-                        true
-                    }
-                    4 -> { togglePassiveTts(); true }
-                    5 -> { GemmaService.instance?.ttsManager?.stop(); true }
-                    6 -> { /* TODO: switch to diary view */ true }
-                    7 -> { moveTaskToBack(true); true }
-                    else -> false
-                }
-            }
-            popup.show()
-        }
+        btnDropdown?.setOnClickListener { showSettingsDialog() }
         
         loadHistoricalChat()
+    }
+
+    private fun showSettingsDialog() {
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE)
+        
+        // Root container
+        val root = android.widget.ScrollView(this).apply {
+            setBackgroundColor(android.graphics.Color.parseColor("#0A0A0A"))
+            setPadding(0, 0, 0, 0)
+        }
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(48, 32, 48, 32)
+        }
+        root.addView(container)
+
+        val accentColor = android.graphics.Color.parseColor("#A78BFA")
+        val dimTextColor = android.graphics.Color.parseColor("#99FFFFFF")
+        val dividerColor = android.graphics.Color.parseColor("#1AFFFFFF")
+
+        // === SECTION: Title ===
+        container.addView(TextView(this).apply {
+            text = "✧ GHOST Settings"
+            textSize = 16f
+            setTextColor(accentColor)
+            letterSpacing = 0.1f
+            setPadding(0, 0, 0, 24)
+        })
+
+        // === SECTION: Toggle Switches ===
+        fun addToggleRow(label: String, isOn: Boolean, onToggle: (Boolean) -> Unit) {
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, 16, 0, 16)
+            }
+            row.addView(TextView(this).apply {
+                text = label
+                textSize = 14f
+                setTextColor(android.graphics.Color.WHITE)
+                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            val switch = android.widget.Switch(this).apply {
+                isChecked = isOn
+                setOnCheckedChangeListener { _, checked -> onToggle(checked) }
+                thumbTintList = android.content.res.ColorStateList.valueOf(if (isOn) accentColor else android.graphics.Color.parseColor("#555555"))
+                trackTintList = android.content.res.ColorStateList.valueOf(if (isOn) android.graphics.Color.parseColor("#4DA78BFA") else android.graphics.Color.parseColor("#333333"))
+            }
+            switch.setOnCheckedChangeListener { _, checked ->
+                onToggle(checked)
+                switch.thumbTintList = android.content.res.ColorStateList.valueOf(if (checked) accentColor else android.graphics.Color.parseColor("#555555"))
+                switch.trackTintList = android.content.res.ColorStateList.valueOf(if (checked) android.graphics.Color.parseColor("#4DA78BFA") else android.graphics.Color.parseColor("#333333"))
+            }
+            row.addView(switch)
+            container.addView(row)
+        }
+
+        // Edge Lights toggle
+        addToggleRow("Edge Lights", com.ghost.api.ui.EdgeLightsManager.isShowing) { checked ->
+            if (checked != com.ghost.api.ui.EdgeLightsManager.isShowing) {
+                sendBroadcast(Intent(this, com.ghost.api.hardware.HardwareToggleReceiver::class.java).apply { action = "com.ghost.api.ACTION_TOGGLE_EDGE_LIGHTS" })
+            }
+        }
+
+        // Passive TTS toggle
+        addToggleRow("Passive Notification TTS", prefs.getBoolean(Constants.PREF_PASSIVE_TTS, true)) { checked ->
+            prefs.edit().putBoolean(Constants.PREF_PASSIVE_TTS, checked).apply()
+            Toast.makeText(this, if (checked) "Passive TTS on" else "Passive TTS off", Toast.LENGTH_SHORT).show()
+        }
+
+        // Mute TTS toggle (momentary — stops current speech)
+        addToggleRow("Mute TTS", false) { checked ->
+            if (checked) {
+                GemmaService.instance?.ttsManager?.stop()
+            }
+            Toast.makeText(this, if (checked) "TTS muted" else "TTS unmuted", Toast.LENGTH_SHORT).show()
+        }
+
+        // === Divider ===
+        container.addView(View(this).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+            ).apply { topMargin = 16; bottomMargin = 16 }
+            setBackgroundColor(dividerColor)
+        })
+
+        // === SECTION: Wallpapers (action buttons) ===
+        fun addActionRow(label: String, onClick: () -> Unit) {
+            container.addView(TextView(this).apply {
+                text = label
+                textSize = 14f
+                setTextColor(android.graphics.Color.WHITE)
+                setPadding(0, 24, 0, 24)
+                setOnClickListener { onClick() }
+                setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, android.R.drawable.ic_media_play, 0)
+                compoundDrawableTintList = android.content.res.ColorStateList.valueOf(dimTextColor)
+                compoundDrawablePadding = 16
+            })
+        }
+
+        addActionRow("Camera Wallpaper") {
+            sendBroadcast(Intent(this, com.ghost.api.hardware.HardwareToggleReceiver::class.java).apply { action = "com.ghost.api.ACTION_SET_CAMERA_WALLPAPER" })
+        }
+        addActionRow("Avatar Wallpaper") {
+            sendBroadcast(Intent(this, com.ghost.api.hardware.HardwareToggleReceiver::class.java).apply { action = "com.ghost.api.ACTION_SET_AVATAR_WALLPAPER" })
+        }
+
+        // === Divider ===
+        container.addView(View(this).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+            ).apply { topMargin = 16; bottomMargin = 16 }
+            setBackgroundColor(dividerColor)
+        })
+
+        // === SECTION: Backend Selector ===
+        container.addView(TextView(this).apply {
+            text = "Inference Backend"
+            textSize = 12f
+            setTextColor(dimTextColor)
+            letterSpacing = 0.08f
+            setPadding(0, 0, 0, 12)
+        })
+
+        val currentBackend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO") ?: "AUTO"
+        val radioGroup = android.widget.RadioGroup(this).apply {
+            orientation = android.widget.RadioGroup.HORIZONTAL
+        }
+        val backends = listOf("AUTO", "CPU", "GPU", "NPU")
+        for (backend in backends) {
+            radioGroup.addView(android.widget.RadioButton(this).apply {
+                text = backend
+                textSize = 12f
+                setTextColor(android.graphics.Color.WHITE)
+                buttonTintList = android.content.res.ColorStateList.valueOf(accentColor)
+                isChecked = (backend == currentBackend)
+                id = View.generateViewId()
+                setPadding(0, 0, 24, 0)
+            })
+        }
+        radioGroup.setOnCheckedChangeListener { group, checkedId ->
+            val selected = group.findViewById<android.widget.RadioButton>(checkedId)?.text?.toString() ?: "AUTO"
+            prefs.edit().putString(Constants.PREF_USER_BACKEND, selected).apply()
+            Toast.makeText(this, "Backend set to $selected — takes effect on next restart", Toast.LENGTH_SHORT).show()
+        }
+        container.addView(radioGroup)
+
+        // === Divider ===
+        container.addView(View(this).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+            ).apply { topMargin = 16; bottomMargin = 16 }
+            setBackgroundColor(dividerColor)
+        })
+
+        // === SECTION: Utility Actions ===
+        addActionRow("Clear Safe Mode") {
+            GemmaService.instance?.resetRecoveryState()
+            Toast.makeText(this, "Safe mode cleared — GPU/NPU restored on next restart", Toast.LENGTH_SHORT).show()
+        }
+        addActionRow("Internal Diary") {
+            /* TODO: switch to diary view */
+            Toast.makeText(this, "Diary view coming soon", Toast.LENGTH_SHORT).show()
+        }
+        addActionRow("Minimize") {
+            moveTaskToBack(true)
+        }
+
+        // Build and show dialog
+        val dialog = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+            .setView(root)
+            .create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.show()
     }
     
     private fun loadHistoricalChat() {
@@ -321,14 +461,6 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                 thinkingText?.text = "Thinking... $ts"
             }
         }
-    }
-
-    private fun togglePassiveTts() {
-        val prefs = getSharedPreferences(com.ghost.api.Constants.PREFS_NAME, MODE_PRIVATE)
-        val current = prefs.getBoolean(com.ghost.api.Constants.PREF_PASSIVE_TTS, true)
-        prefs.edit().putBoolean(com.ghost.api.Constants.PREF_PASSIVE_TTS, !current).apply()
-        val label = if (!current) "Passive TTS on" else "Passive TTS off"
-        android.widget.Toast.makeText(this, label, android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun sendStagedMessage(text: String) {

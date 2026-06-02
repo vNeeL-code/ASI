@@ -14,13 +14,13 @@ import androidx.core.graphics.ColorUtils
 import com.ghost.api.audio.SystemVisualizer
 import kotlin.math.*
 
-class MilkdropWallpaperService : WallpaperService() {
+class AvatarWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine {
-        return MilkdropEngine()
+        return AvatarEngine()
     }
 
-    inner class MilkdropEngine : Engine(), SystemVisualizer.AudioListener, SensorEventListener {
+    inner class AvatarEngine : Engine(), SystemVisualizer.AudioListener, SensorEventListener {
         
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             strokeJoin = Paint.Join.ROUND

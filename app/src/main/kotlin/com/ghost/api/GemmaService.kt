@@ -550,16 +550,14 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
 
         // WATCHDOG: Detect previous crash
-        val wasInitializing = prefs.getBoolean("is_initializing", false)
+        // NOTE: Counter is already incremented in onCreate(). Do NOT double-increment here.
         val crashCount = prefs.getInt("init_crash_count", 0)
 
-        if (wasInitializing) {
-            val newCount = crashCount + 1
-            prefs.edit().putInt("init_crash_count", newCount).apply()
-            Timber.e("\uD83D\uDEA8 WATCHDOG: Previous initialization crashed! (Count: $newCount)")
+        if (prefs.getBoolean("is_initializing", false)) {
+            Timber.e("\uD83D\uDEA8 WATCHDOG: Previous initialization crashed! (Count: $crashCount)")
             
             // Audit 2.0: Be less aggressive (4 crashes instead of 2) to allow for memory pressure recovery
-            if (newCount >= 4) {
+            if (crashCount >= 4) {
                  prefs.edit().putBoolean("force_cpu", true).apply()
                  updateNotification("Safe Mode: Forcing CPU")
             }
@@ -617,8 +615,13 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
             updateNotification("Running Full System Diagnostics...")
 
-            // Determine backend
-            val forcedBackend = if (prefs.getInt("init_crash_count", 0) >= 4) {
+            // Determine backend: User override > Watchdog > Auto waterfall
+            val userBackend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO")
+            val forcedBackend = if (userBackend != null && userBackend != "AUTO") {
+                Timber.i("\uD83C\uDFAE User backend override: $userBackend")
+                updateNotification("Loading on $userBackend (user selected)")
+                userBackend
+            } else if (prefs.getInt("init_crash_count", 0) >= 4) {
                 Timber.w("\uD83D\uDEA8 Forcing CPU backend due to repeated crashes (threshold 4)")
                 updateNotification("Safe Mode: Forcing CPU")
                 "CPU"
@@ -703,7 +706,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 .putInt("init_crash_count", 0)
                 .apply()
 
-            updateNotification("Ô£ô Ready - localhost:${Constants.API_PORT}")
+            updateNotification("System Ready - localhost:${Constants.API_PORT}")
 
         } catch (e: Exception) {
             Timber.e(e)
@@ -764,7 +767,9 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
                 withContext(Dispatchers.Main) {
                     uiCallback?.onThinkingStateChanged(false)
-                    uiCallback?.onMessageAdded(response ?: "Error: Did not generate response.", isUser = false)
+                    if (response == null) {
+                        uiCallback?.onMessageAdded("Error: Request timed out or returned null.", isUser = false)
+                    }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "UI processing failure")
@@ -814,7 +819,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             
             // Watchdog Fix (Audit 3.0): Reset crash counter on successful inference
             if (response != null && !response.contains("Error:")) {
-                getSharedPreferences("ghost_prefs", android.content.Context.MODE_PRIVATE)
+                getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
                     .edit().putInt("init_crash_count", 0).apply()
             }
             
