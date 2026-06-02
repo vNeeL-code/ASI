@@ -978,8 +978,21 @@ class KoogAgent(
 
         // KV cache holds conversation history natively.
         // We only inject context (body/sensors) here. 
-        // OPTIMIZATION: Zero redundant history recap. The Engine's Conversation object handles this.
-        val historyRecap = ""
+        // OPTIMIZATION: Zero redundant history recap unless KV cache was just flushed.
+        var historyRecap = ""
+        if (turnsSinceKvFlush == 0 && !skipNextRecap) {
+            val recentHistory = synchronized(_conversationHistory) { _conversationHistory.takeLast(6) }
+            if (recentHistory.isNotEmpty()) {
+                val sb = java.lang.StringBuilder()
+                sb.append("[SYSTEM: KV Cache Flushed. Restoring recent context:]\n")
+                recentHistory.forEach { msg ->
+                    sb.append("${msg.role.replaceFirstChar { it.uppercase() }}: ${msg.content}\n")
+                }
+                sb.append("[/RESTORED CONTEXT]\n\n")
+                historyRecap = sb.toString()
+                Timber.i("Stitching ${recentHistory.size} messages back into context after KV flush")
+            }
+        }
 
         if (skipNextRecap) {
             skipNextRecap = false
@@ -988,7 +1001,7 @@ class KoogAgent(
         _turnsSinceKvFlush.incrementAndGet()
 
         val contextBlock = contextManager.buildContext()
-        val fullPrompt = "$contextBlock\n$userMessage"
+        val fullPrompt = "$historyRecap$contextBlock\n$userMessage"
         
         // Proactive Smooth Restart: Flush KV cache if context is saturating (Approx 10 turns)
         // Removed: Proactive Smooth Restart (It was destroying KV cache and causing 20s latency)

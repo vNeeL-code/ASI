@@ -308,6 +308,12 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             Toast.makeText(this, if (checked) "Passive TTS on" else "Passive TTS off", Toast.LENGTH_SHORT).show()
         }
 
+        // PiP Tool Visibility toggle
+        addToggleRow("PiP Tool Visibility", prefs.getBoolean(Constants.PREF_PIP_VISIBILITY, true)) { checked ->
+            prefs.edit().putBoolean(Constants.PREF_PIP_VISIBILITY, checked).apply()
+            Toast.makeText(this, if (checked) "PiP overlays on" else "PiP overlays off", Toast.LENGTH_SHORT).show()
+        }
+
         // Mute TTS toggle (momentary — stops current speech)
         addToggleRow("Mute TTS", false) { checked ->
             if (checked) {
@@ -513,6 +519,23 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                     }
                 }
             } catch (e: Exception) { Timber.e(e) }
+        }
+        checkNotificationPermission()
+    }
+
+    private var hasPromptedForNotification = false
+
+    private fun checkNotificationPermission() {
+        val cn = android.content.ComponentName(this, com.ghost.api.GemmaNotificationListener::class.java)
+        val flat = android.provider.Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        val isEnabled = flat != null && flat.contains(cn.flattenToString())
+        
+        if (!isEnabled && !hasPromptedForNotification) {
+            hasPromptedForNotification = true
+            Toast.makeText(this, "Please grant Notification Access for context awareness.", Toast.LENGTH_LONG).show()
+            val intent = Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
         }
     }
 

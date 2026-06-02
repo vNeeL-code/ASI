@@ -43,12 +43,14 @@ class NetworkToolSet(private val context: Context) : ToolSet {
         }
     }
 
-    @Tool(description = "Fetch search results silently (returns top snippets, no browser opened)")
+    @Tool(description = "Fetch search results silently. If you are unfamiliar with the topic user is mentioning, use web search to fill context gap.")
     fun web_search(
         @ToolParam(description = "Search query") query: String, 
         @ToolParam(description = "Max results to return") maxResults: Int = 5
     ): Map<String, String> = runBlocking(Dispatchers.IO) {
         Timber.i("Performing silent search for: $query")
+        com.ghost.api.GemmaService.instance?.showPipContent("Web Search", "Querying DuckDuckGo: $query...")
+
         
         val ddgResult = try { fetchDuckDuckGoLite(query, maxResults) } catch (e: Exception) { 
             Timber.w("DuckDuckGo search failed: ${e.message}")
@@ -129,8 +131,8 @@ class NetworkToolSet(private val context: Context) : ToolSet {
     private fun parseDuckDuckGoLiteResults(html: String, maxResults: Int): List<SearchResult> {
         val results = mutableListOf<SearchResult>()
         // Parse the table structure of lite.duckduckgo.com
-        val titlePattern = Regex("""<a rel="nofollow" href="([^"]+)" class="result-url">([^<]+)</a>""")
-        val snippetPattern = Regex("""<td class='result-snippet'>([^<]+)</td>""")
+        val titlePattern = Regex("""<a rel="nofollow" href="([^"]+)" class='result-link'>([^<]+)</a>""")
+        val snippetPattern = Regex("""<td class='result-snippet'>([\s\S]*?)</td>""")
 
         val titles = titlePattern.findAll(html).toList()
         val snippets = snippetPattern.findAll(html).toList()
@@ -138,7 +140,8 @@ class NetworkToolSet(private val context: Context) : ToolSet {
         for (i in 0 until minOf(titles.size, snippets.size, maxResults)) {
             val url = titles[i].groupValues[1]
             val title = titles[i].groupValues[2].trim()
-            val snippet = snippets[i].groupValues[1].trim()
+            val rawSnippet = snippets[i].groupValues[1]
+            val snippet = rawSnippet.replace(Regex("<[^>]+>"), "").trim()
             results.add(SearchResult(title, snippet, url))
         }
 

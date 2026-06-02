@@ -130,8 +130,10 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     private fun setupNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Gemma Service", NotificationManager.IMPORTANCE_LOW
+            val channel = android.app.NotificationChannel(
+                CHANNEL_ID,
+                "Agentic State",
+                NotificationManager.IMPORTANCE_LOW
             )
             manager.createNotificationChannel(channel)
         }
@@ -316,6 +318,8 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     override fun onCreate() {
         instance = this
         super.onCreate()
+        
+        setupDiaryCron()
 
         // Initialize Global Crash Handler
         CrashHandler.install(this)
@@ -1363,25 +1367,68 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     private fun setupOverlayManager() {
         if (!::overlayManager.isInitialized) return
 
-        // Wire up audio callback for InputOverlay (audio-first input)
+        // Audio-first sparkle overlay integration
         overlayManager.setAudioQueryCallback { audio ->
             scope.launch {
-                Timber.w("AUDIO_DEBUG: InputOverlay received ${audio?.size} bytes")
-                if (audio == null || audio.isEmpty()) {
-                    Timber.e("AUDIO_DEBUG: Audio is empty! Aborting.")
-                    return@launch
-                }
-
-                // Audio is in WAV format from AudioRecorder.record(rawPcm=false)
                 // LiteRT LLM expects WAV format for miniaudio decoder
                 if (::koogAgent.isInitialized) {
                     koogAgent.offerAudio(audio)
                 }
                 Timber.w("AUDIO_DEBUG: Queued ${audio.size} bytes of WAV audio")
 
-                val sessionId = UUID.randomUUID().toString()
+                val sessionId = java.util.UUID.randomUUID().toString()
                 // Tell the model to listen to the attached audio
                 processQuery("[User sent voice message - listen and respond to the audio]", sessionId)
+            }
+        }
+    }
+
+    fun showPipContent(title: String, htmlContent: String, durationMs: Long = 5000) {
+        if (::overlayManager.isInitialized) {
+            overlayManager.showPipContent(title, htmlContent, durationMs)
+        }
+    }
+
+    private fun setupDiaryCron() {
+        val alarmManager = getSystemService(android.app.AlarmManager::class.java)
+        val intent = android.content.Intent(this, com.ghost.api.receivers.DiaryAlarmReceiver::class.java).apply {
+            action = "com.ghost.api.ACTION_DIARY_CYCLE"
+        }
+        val pendingIntent = android.app.PendingIntent.getBroadcast(
+            this, 200, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Schedule to run every 12 hours starting at the next Noon or Midnight
+        val now = java.util.Calendar.getInstance()
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        
+        if (now.get(java.util.Calendar.HOUR_OF_DAY) >= 12) {
+            // Next is midnight
+            calendar.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        } else {
+            // Next is noon
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, 12)
+        }
+
+        alarmManager.setRepeating(
+            android.app.AlarmManager.RTC_WAKEUP,
+            calendar.timeInMillis,
+            android.app.AlarmManager.INTERVAL_HALF_DAY,
+            pendingIntent
+        )
+        Timber.i("📔 Diary cron scheduled starting at ${calendar.time}")
+    }
+
+    fun startDiaryCycle() {
+        serviceScope.launch {
+            if (::koogAgent.isInitialized && koogAgent.isReady) {
+                val battery = try { sensorFusionManager.getContextSnapshot().battery.level } catch (e: Exception) { -1 }
+                val prompt = "[SYSTEM: It is time to write your diary entry. Write a brief summary in first person describing your experience today, the state of the system (Battery is at $battery%), and any tools you used. This will be saved to your diary.]"
+                Timber.i("📔 Starting Diary Cycle...")
+                processQuery(prompt, null, true)
             }
         }
     }

@@ -261,5 +261,10 @@
         <!-- Internal Alarm Receiver -->
         <receiver android:name=".hardware.GhostAlarmReceiver" android:exported="false" />
         
+        <receiver android:name=".receivers.DiaryAlarmReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="com.ghost.api.ACTION_DIARY_CYCLE" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -140,6 +140,33 @@ class BrowserBubbleOverlay(
 
         rootLayout.addView(webView, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(rootLayout)
+
+        var isExpanded = false
+        val defaultWidth = (metrics.widthPixels * 0.45).toInt()
+        val defaultHeight = (metrics.heightPixels * 0.35).toInt()
+        val expandedWidth = (metrics.widthPixels * 0.90).toInt()
+        val expandedHeight = (metrics.heightPixels * 0.80).toInt()
+
+        titleBar.setOnClickListener {
+            isExpanded = !isExpanded
+            windowParams.width = if (isExpanded) expandedWidth else defaultWidth
+            windowParams.height = if (isExpanded) expandedHeight else defaultHeight
+            
+            // Re-center when expanded
+            if (isExpanded) {
+                windowParams.x = (metrics.widthPixels - expandedWidth) / 2
+                windowParams.y = (metrics.heightPixels - expandedHeight) / 2
+            }
+            
+            windowManager.updateViewLayout(this@BrowserBubbleOverlay, windowParams)
+        }
+    }
+
+    fun loadContent(title: String, htmlContent: String) {
+        post {
+            titleBar.text = title
+            webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+        }
     }
 
     fun loadUrl(url: String) {

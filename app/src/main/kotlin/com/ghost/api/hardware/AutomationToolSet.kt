@@ -49,10 +49,10 @@ class AutomationToolSet(private val context: Context) : ToolSet {
         }
     }
 
-    @Tool(description = "Schedules a cron job in the future for self prompting")
-    fun schedule_prompt(
+    @Tool(description = "Schedules a background task in the future. Essential for multi-step autonomy or executing plans (the 8ptagenda). Provide the exact system prompt you want to receive when it wakes up.")
+    fun schedule_task(
         @ToolParam(description = "Delay in minutes before the prompt is triggered") delayMinutes: Int,
-        @ToolParam(description = "The exact prompt text to feed back into your own context") prompt: String
+        @ToolParam(description = "The exact prompt text to feed back into your own context. Start with [SYSTEM: Task Wakeup]") prompt: String
     ): Map<String, String> {
         return try {
             val intent = Intent("com.ghost.api.ACTION_CRON_PROMPT").apply {
@@ -76,8 +76,8 @@ class AutomationToolSet(private val context: Context) : ToolSet {
                 pendingIntent
             )
             
-            Timber.i("Self-prompt scheduled in $delayMinutes minutes: $prompt")
-            mapOf("result" to "success", "message" to "Prompt scheduled for $delayMinutes minutes from now")
+            Timber.i("Task scheduled in $delayMinutes minutes: $prompt")
+            mapOf("result" to "success", "message" to "Task scheduled for $delayMinutes minutes from now")
         } catch (e: Exception) {
             mapOf("result" to "error", "message" to (e.message ?: "Failed to schedule prompt"))
         }

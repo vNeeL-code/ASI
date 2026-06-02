@@ -74,7 +74,7 @@ class SystemToolSet(private val context: Context) : ToolSet {
         return appListCache ?: emptyList()
     }
 
-    @Tool(description = "Sets an alarm")
+    @Tool(description = "Sets an alarm. IMPORTANT: Due to Android security, this opens the Clock app with the alarm pre-filled. You MUST tell the user: 'I have opened the clock app, please tap Save!'")
     fun alarm(
         @ToolParam(description = "Hour in 24h format") hour: Int, 
         @ToolParam(description = "Minutes") minutes: Int, 
@@ -226,10 +226,11 @@ class SystemToolSet(private val context: Context) : ToolSet {
         return mapOf("result" to "success", "message" to "Email app opened")
     }
 
-    @Tool(description = "Bash command")
+    @Tool(description = "Run a shell/bash command")
     fun bash(
-        @ToolParam(description = "Shell command to execute") command: String
+        @ToolParam(description = "The command") command: String
     ): Map<String, String> {
+        com.ghost.api.GemmaService.instance?.showPipContent("Terminal", "Executing: $command")
         return try {
             val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
             process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
@@ -253,5 +254,18 @@ class SystemToolSet(private val context: Context) : ToolSet {
     ): Map<String, String> {
         val memories = DiaryManager(context).searchMemories(query)
         return mapOf("result" to "success", "memories" to memories.joinToString("\n---\n"))
+    }
+
+    @Tool(description = "Replies to a notification")
+    fun reply_notification(
+        @ToolParam(description = "Package name of the app (e.g. com.whatsapp)") packageName: String,
+        @ToolParam(description = "The text to send") text: String
+    ): Map<String, String> {
+        val success = com.ghost.api.GemmaNotificationListener.replyTo(packageName, text)
+        return if (success) {
+            mapOf("result" to "success", "message" to "Reply sent")
+        } else {
+            mapOf("result" to "error", "message" to "No reply action found for $packageName")
+        }
     }
 }

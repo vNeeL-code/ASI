@@ -53,6 +53,7 @@ object Constants {
     // Preferences
     const val PREFS_NAME = "gemma_instance_settings"
     const val PREF_PASSIVE_TTS = "passive_notification_tts"
+    const val PREF_PIP_VISIBILITY = "pip_visibility_enabled"
     const val PREF_USER_BACKEND = "user_backend_override"  // "AUTO", "CPU", "GPU", "NPU"
 
     // Token estimation (chars per token, approximate)

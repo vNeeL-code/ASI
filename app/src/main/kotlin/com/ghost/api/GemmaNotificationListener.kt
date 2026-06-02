@@ -56,6 +56,9 @@ class GemmaNotificationListener : NotificationListenerService() {
 
         Timber.d("Notification: $pkg - $title")
         
+        // Cache reply action if available
+        storeReplyAction(pkg, sbn)
+        
         // Passive TTS: Read aloud if enabled (Filter out silence and media spam)
         val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
         if (prefs.getBoolean(Constants.PREF_PASSIVE_TTS, false) && text.isNotBlank()) {
@@ -64,7 +67,13 @@ class GemmaNotificationListener : NotificationListenerService() {
             val isMessaging = pkg.contains("chat") || pkg.contains("msg") || pkg.contains("whatsapp") || pkg.contains("telegram") || pkg.contains("discord")
 
             if (!isMedia || isMessaging) {
-                val ttsText = entry.toContextString()
+                var ttsText = entry.toContextString()
+                
+                // Add proactive prompt if it's a message and we can reply
+                if (isMessaging && replyCache.containsKey(pkg)) {
+                    ttsText += ". How would you like me to reply?"
+                }
+                
                 try { GemmaService.instance?.ttsManager?.speak(ttsText) } catch (_: Exception) {}
             }
         }
@@ -94,6 +103,14 @@ class GemmaNotificationListener : NotificationListenerService() {
     companion object {
         var instance: GemmaNotificationListener? = null
         private val recentNotifications = ConcurrentLinkedDeque<NotificationEntry>()
+        
+        // Cache for pending reply intents: packageName -> ReplyAction
+        private val replyCache = java.util.concurrent.ConcurrentHashMap<String, ReplyAction>()
+
+        data class ReplyAction(
+            val pendingIntent: android.app.PendingIntent,
+            val remoteInput: android.app.RemoteInput
+        )
 
         // Packages to ignore (system noise)
         private val IGNORED_PACKAGES = setOf(
@@ -117,6 +134,36 @@ class GemmaNotificationListener : NotificationListenerService() {
         fun clear() {
             synchronized(recentNotifications) {
                 recentNotifications.clear()
+            }
+        }
+
+        fun storeReplyAction(pkg: String, sbn: StatusBarNotification) {
+            val actions = sbn.notification.actions ?: return
+            for (action in actions) {
+                val remoteInputs = action.remoteInputs ?: continue
+                for (remoteInput in remoteInputs) {
+                    if (remoteInput.allowFreeFormInput) {
+                        replyCache[pkg] = ReplyAction(action.actionIntent, remoteInput)
+                        return
+                    }
+                }
+            }
+        }
+
+        fun replyTo(pkg: String, replyText: String): Boolean {
+            val replyAction = replyCache[pkg] ?: return false
+            val localIntent = android.content.Intent().apply {
+                android.os.Bundle().apply {
+                    putCharSequence(replyAction.remoteInput.resultKey, replyText)
+                    android.app.RemoteInput.addResultsToIntent(arrayOf(replyAction.remoteInput), this@apply, this)
+                }
+            }
+            return try {
+                replyAction.pendingIntent.send(instance, 0, localIntent)
+                true
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to send reply to $pkg")
+                false
             }
         }
     }

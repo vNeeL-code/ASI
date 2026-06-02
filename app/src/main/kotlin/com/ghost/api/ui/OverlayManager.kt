@@ -246,6 +246,36 @@ class OverlayManager(private val context: Context) {
             }, 5000)
         }
     }
+
+    fun showPipContent(title: String, htmlContent: String, durationMs: Long = 5000) {
+        val prefs = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(Constants.PREF_PIP_VISIBILITY, true)) return
+
+        if (!canDrawOverlay()) return
+
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            if (browserBubble == null) {
+                browserBubble = BrowserBubbleOverlay(context, windowManager!!) {
+                    hideBrowserBubble()
+                }
+                windowManager?.addView(browserBubble, browserBubble!!.windowParams)
+            }
+
+            val wrappedHtml = """
+                <html><head><style>
+                body { background-color: #1E1E1E; color: #FFFFFF; font-family: monospace; font-size: 14px; padding: 8px; }
+                </style></head><body>$htmlContent</body></html>
+            """.trimIndent()
+            
+            browserBubble?.loadContent(title, wrappedHtml)
+            
+            if (durationMs > 0) {
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    hideBrowserBubble()
+                }, durationMs)
+            }
+        }
+    }
     
     fun hideBrowserBubble() {
         android.os.Handler(android.os.Looper.getMainLooper()).post {
