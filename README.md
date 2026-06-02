@@ -15,9 +15,9 @@
 
 <img width="922" height="2048" alt="79d2f510-91ed-425f-bdc1-ced18055c1e2" src="https://github.com/user-attachments/assets/f2b9fc5b-c454-42ac-a5a7-dd6123175c84" />
 
-✧ GHOST is not an entertainment chatbot. **Gemma Hosting Open Source Thingamajig** is an AI powered android launcher for users who want a deeply capable, personal Android assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
+✧ GHOST is not an entertainment chatbot. **Gemma Hosting Open Source Thingamajig** is an AI powered android app launcher overlay for users who want a deeply capable, personal Android assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
 
-A gentle shake summoning a programmable app joystick on any app, with direct access to a local Gemma 4 model that can chime in via TTS without occupying your screen
+A gentle shake summoning a programmable app joystick on any app, with direct access to a local model that can chime in via TTS without occupying your screen powered by [Google Gemma 4](https://ai.google.dev/gemma/docs/core/model_card_4) via LiteRT-LM.
 
 Most modern "on-device AI" implementations amount to an isolated chatbot completely detached from hardware feedback. They remain blind to the system state, operating temperatures, or real-time limitations because developers consistently forget to ground the system context within the system prompt. **GHOST fixes that.** Every single inference cycle is natively grounded in live hardware telemetry:
 
@@ -70,9 +70,9 @@ The resident intelligence explicitly identifies as **✧ Gemma**, completely awa
 ### Get Your ✧ GHOST
 
 1. **Download:** Grab the latest beta compilation build from the [Releases](https://github.com/vNeeL-code/GHOST/releases) portal. (4.1.5) 
-2. **Permissions:** Install the APK and grant required system permissions (`Display Over Other Apps`, `Notifications`, and `Accessibility Services`).
-3. **Model Selection:** The application automatically initialises with the performance-optimized `e2b` download. If your device carries **12GB+ RAM** (e.g., RedMagic configurations), manually download the high-fidelity `e4b` model environment for advanced reasoning capabilities and app will prioritise loading e4b if it is present.
-4. **Deploy:** Shake your device to summon the overlay and customise your ephemeral app drawer.
+2. **Permissions:** Install the APK and grant required system permissions for functionality (`Display Over Other Apps`, `read and write Notifications`, `all files access`, and `Accessibility Services`).
+3. **Model Selection:** The application automatically initialises with the performance-optimized `e2b` download if no model is detected. If your device carries **12GB+ RAM** (e.g., modern flagships), manually download the high-fidelity `e4b` model [here](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/tree/main) for more advanced reasoning capabilities and app will prioritise loading e4b if it is present.
+4. **Deploy:** Shake your device to summon the overlay and customise your ephemeral app drawer. Edge lighting and live reactive wallpaper are optional.
 
 ---
 
