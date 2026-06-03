@@ -753,6 +753,21 @@ class GemmaService : Service(), AgentPlatformCallbacks {
      * Called directly by MainActivity to process native chat interface queries.
      * It uses the same backend engine but avoids spinning up unnecessary Overlay/Audio managers.
      */
+
+    fun processNotificationContext(prompt: String) {
+        if (!::koogAgent.isInitialized || !koogAgent.isReady) return
+        
+        serviceScope.launch {
+            try {
+                // Pass it through the core pipeline. isDream = false means it WILL be saved to history 
+                // and it WILL be spoken by TTS if a response is generated.
+                processQuery(prompt, null, false)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to process notification context")
+            }
+        }
+    }
+
     fun processQueryFromUi(query: String) {
         if (!::koogAgent.isInitialized || !koogAgent.isReady) {
             uiCallback?.onMessageAdded("System is still initializing. Please wait a moment and try again.", isUser = false)

@@ -59,22 +59,24 @@ class GemmaNotificationListener : NotificationListenerService() {
         // Cache reply action if available
         storeReplyAction(pkg, sbn)
         
-        // Passive TTS: Read aloud if enabled (Filter out silence and media spam)
+        // Passive Context Injection: Send to Gemma to process instead of direct TTS
         val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
         if (prefs.getBoolean(Constants.PREF_PASSIVE_TTS, false) && text.isNotBlank()) {
-            // Filter out media player noise (titles like "Song is playing" or similar)
             val isMedia = pkg.contains("music") || pkg.contains("audio") || pkg.contains("player") || title.contains("playing", ignoreCase = true)
             val isMessaging = pkg.contains("chat") || pkg.contains("msg") || pkg.contains("whatsapp") || pkg.contains("telegram") || pkg.contains("discord")
 
-            if (!isMedia || isMessaging) {
-                var ttsText = entry.toContextString()
+            if (isMessaging) {
+                val appName = pkg.split('.').lastOrNull()?.capitalize() ?: pkg
+                var prompt = "[SYSTEM EVENT: Incoming message on $appName from $title. Message says: \"$text\". Briefly tell the user about this message in your own words"
                 
-                // Add proactive prompt if it's a message and we can reply
-                if (isMessaging && replyCache.containsKey(pkg)) {
-                    ttsText += ". How would you like me to reply?"
+                if (replyCache.containsKey(pkg)) {
+                    prompt += ", and ask if they would like you to reply to it.]"
+                } else {
+                    prompt += ".]"
                 }
                 
-                try { GemmaService.instance?.ttsManager?.speak(ttsText) } catch (_: Exception) {}
+                // Fire and forget to GemmaService
+                GemmaService.instance?.processNotificationContext(prompt)
             }
         }
 
