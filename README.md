@@ -17,7 +17,7 @@
 
 ✧ GHOST is not an entertainment chatbot. **Gemma Hosting Open Source Thingamajig** is an AI powered android app launcher overlay for users who want a deeply capable, personal Android assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
 
-A gentle shake summoning a programmable app joystick (hold ✧ to settup shortcuts) on any app, with direct access to a local model that can chime in via TTS without occupying your screen powered by [Google Gemma 4](https://ai.google.dev/gemma/docs/core/model_card_4) via LiteRT-LM.
+A gentle shake summoning a programmable app joystick (hold ✧ to set up shortcuts) on any app, with direct access to a local model that can chime in via TTS without occupying your screen powered by [Google Gemma 4](https://ai.google.dev/gemma/docs/core/model_card_4) via LiteRT-LM.
 
 Most modern "on-device AI" implementations amount to an isolated chatbot completely detached from hardware feedback. They remain blind to the system state, operating temperatures, or real-time limitations because developers consistently forget to ground the system context within the system prompt. **GHOST fixes that.** Every single inference cycle is natively grounded in live hardware telemetry:
 
