@@ -1433,11 +1433,13 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             if (::koogAgent.isInitialized && koogAgent.isReady) {
                 val battery = try { sensorFusionManager.getContextSnapshot().battery.level } catch (e: Exception) { -1 }
                 val compactedMemory = try { kotlinx.coroutines.runBlocking { memoryManager.getCompactedSessionMemory() } } catch (e: Exception) { "" }
-                val prompt = "[SYSTEM: It is time to write your diary entry.
-Here is the compacted memory of your activities today:
-$compactedMemory
-
-Write a detailed summary in first person describing your experience, the state of the system (Battery is at ${battery}%), and any tools you used. This will be saved to your diary.]"
+                val prompt = """
+                    |[SYSTEM: It is time to write your diary entry.
+                    |Here is the compacted memory of your activities today:
+                    |$compactedMemory
+                    |
+                    |Write a detailed summary in first person describing your experience, the state of the system (Battery is at $battery%), and any tools you used. This will be saved to your diary.]
+                """.trimMargin()
                 Timber.i("📓 Starting Diary Cycle with Memory Injection...")
                 processQuery(prompt, null, true)
             }
