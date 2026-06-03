@@ -317,20 +317,28 @@ class GemmaEngine(private val context: Context) : LlmBackend {
     }
 
     private fun truncateRepetition(response: String): String {
-        if (response.length < 500) return response
+        if (response.length < 100) return response
+        
+        // 1. Sentence-level repetition
         val sentences = response.split(Regex("""(?<=[.!?])\s+""")).filter { it.length >= 15 }
-        if (sentences.size < 10) return response
-        val seen = HashSet<String>()
-        var cutIndex = -1
-        for ((i, sentence) in sentences.withIndex()) {
-            val normalized = sentence.trim().lowercase()
-            if (!seen.add(normalized) && i > 5) {
-                 // Second occurrence of same sentence after some variety
-                 cutIndex = i
-                 break
+        if (sentences.size >= 10) {
+            val seen = java.util.HashSet<String>()
+            for ((i, sentence) in sentences.withIndex()) {
+                val normalized = sentence.trim().lowercase()
+                if (!seen.add(normalized) && i > 5) {
+                    return sentences.take(i).joinToString(" ") + "\n\n(...loop detected)"
+                }
             }
         }
-        return if (cutIndex > 0) sentences.take(cutIndex).joinToString(" ") + "\n\n(...loop detected)" else response
+        
+        // 2. Word-level repetition ("beambeambeambeam")
+        val wordPattern = Regex("""(.{3,15}?)\1{10,}""") // A 3-15 char string repeated 10+ times
+        val match = wordPattern.find(response)
+        if (match != null) {
+            return response.substring(0, match.range.first) + "\n\n(...loop detected)"
+        }
+        
+        return response
     }
 
     // Audit 2.0: decodeHexTokens removed.

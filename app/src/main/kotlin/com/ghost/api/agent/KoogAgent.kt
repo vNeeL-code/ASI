@@ -1036,7 +1036,8 @@ class KoogAgent(
             val isErrorResponse = response.isBlank() || 
                                   response.contains("Timeout! My thoughts got stuck") || 
                                   response.startsWith("Error:") ||
-                                  response.contains("I... have no words")
+                                  response.contains("I... have no words") ||
+                                  response.contains("loop detected")
 
             if (isErrorResponse) {
                 Timber.e("⚠️ KoogAgent: LLM returned Error/Empty response! (try $retryCount)")
