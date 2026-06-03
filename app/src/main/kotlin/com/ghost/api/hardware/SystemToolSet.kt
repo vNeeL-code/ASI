@@ -75,7 +75,7 @@ class SystemToolSet(private val context: Context) : ToolSet {
     }
 
     @Tool(description = "Sets an alarm for a specific time")
-    fun set_alarm(
+    fun alarm(
         @ToolParam(description = "Hour in 24h format") hour: Int, 
         @ToolParam(description = "Minutes") minutes: Int, 
         @ToolParam(description = "Optional label") label: String = ""
