@@ -44,16 +44,5 @@ class UiMacroToolSet(private val context: Context) : ToolSet {
         return if (success) mapOf("result" to "success") else mapOf("result" to "error")
     }
 
-    @Tool(description = "Run a shell/bash command")
-    fun bash(
-        @ToolParam(description = "The command") command: String
-    ): Map<String, String> {
-        com.ghost.api.GemmaService.instance?.showPipContent("Terminal", "Executing: ${command.take(20)}...")
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-            process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            mapOf("result" to "success", "output" to output.take(2000))
-        } catch (e: Exception) { mapOf("result" to "error", "message" to e.message.toString()) }
-    }
+
 }

@@ -420,6 +420,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 networkTools = networkToolSet,
                 systemTools = systemToolSet,
                 uiMacroTools = uiMacroToolSet,
+                termuxTools = termuxAdbToolSet,
                 audioRecorder = audioRecorder,
                 sensorManager = sensorFusionManager,
                 memoryManager = memoryManager,
@@ -638,9 +639,9 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             } else null
 
             // Determine Tools
-            val coreTools = listOf(hardwareToolSet, networkToolSet, systemToolSet, automationToolSet, termuxAdbToolSet,
-                com.ghost.api.skills.SkillToolSet(skillManager))
+            val coreTools = listOf(hardwareToolSet, networkToolSet, systemToolSet, com.ghost.api.skills.SkillToolSet(skillManager))
             val uiTools = listOf(uiMacroToolSet)
+            val termuxTools = listOf(termuxAdbToolSet, automationToolSet)
 
             // Engine Creation (Locked to prevent double allocation)
             val newEngine = engineMutex.withLock {
@@ -698,6 +699,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 checkpointDir = getExternalFilesDir(null) ?: filesDir,
                 coreTools = coreTools,
                 uiTools = uiTools,
+                termuxTools = termuxTools,
                 callbacks = this@GemmaService
             )
 

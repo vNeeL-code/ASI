@@ -176,7 +176,7 @@ object IntentHandler {
                 }
                 "bash" -> {
                     val command = json.optString("command", "")
-                    com.ghost.api.hardware.UiMacroToolSet(context).bash(command)
+                    com.ghost.api.hardware.TermuxAdbToolSet(context).bash(command)
                     true
                 }
                 "web_search" -> {

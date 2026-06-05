@@ -23,6 +23,7 @@ class MCPServer(
     private val networkTools: NetworkToolSet,
     private val systemTools: SystemToolSet,
     private val uiMacroTools: com.ghost.api.hardware.UiMacroToolSet,
+    private val termuxTools: com.ghost.api.hardware.TermuxAdbToolSet,
     private val audioRecorder: AudioRecorder,
     val sensorManager: SensorFusionManager,
     private val memoryManager: MemoryManager,
@@ -154,7 +155,7 @@ class MCPServer(
                 // Shell (Termux pipe)
                 "bash" -> {
                     val command = params["command"]?.toString() ?: ""
-                    val res = uiMacroTools.bash(command)
+                    val res = termuxTools.bash(command)
                     ToolResult(res["result"] == "success", res["output"] ?: res["message"] ?: "")
                 }
                 // Network

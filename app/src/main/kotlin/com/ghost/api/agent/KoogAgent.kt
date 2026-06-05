@@ -39,6 +39,7 @@ class KoogAgent(
     private val checkpointDir: File,
     private val coreTools: List<com.google.ai.edge.litertlm.ToolSet> = emptyList(),
     private val uiTools: List<com.google.ai.edge.litertlm.ToolSet> = emptyList(),
+    private val termuxTools: List<com.google.ai.edge.litertlm.ToolSet> = emptyList(),
     private val callbacks: AgentPlatformCallbacks? = null
 ) {
     private var currentTools = coreTools
@@ -570,19 +571,19 @@ class KoogAgent(
                 callbacks?.updateNotification("(╭r_•́)")
             }
 
-            // --- Tiered Tool Loading (Lazy inject heavy UI macros if requested) ---
-            if (!event.isDream && uiTools.isNotEmpty()) {
-                val wantsUi = listOf("tap", "click", "scroll", "type", "navigate", "terminal", "bash", "screen").any { event.message.contains(it, ignoreCase = true) }
-                val hasUiTools = currentTools.containsAll(uiTools)
+            // --- Tiered Tool Loading (Lazy inject heavy UI or Termux macros if requested) ---
+            if (!event.isDream) {
+                val wantsUi = listOf("tap", "click", "scroll", "type", "navigate", "screen").any { event.message.contains(it, ignoreCase = true) }
+                val wantsTermux = listOf("termux", "adb", "bash", "shell", "script", "cron", "automate", "terminal").any { event.message.contains(it, ignoreCase = true) }
                 
-                if (wantsUi && !hasUiTools) {
-                    currentTools = coreTools + uiTools
+                var newTools = coreTools
+                if (wantsUi && uiTools.isNotEmpty()) newTools = newTools + uiTools
+                if (wantsTermux && termuxTools.isNotEmpty()) newTools = newTools + termuxTools
+
+                if (newTools != currentTools) {
+                    currentTools = newTools
                     llmEngine.softReset(buildSystemPrompt() + getRollingMemoryString(), currentTools)
-                    Timber.i("lazy_tools: Injected heavy UI/Automation tools")
-                } else if (!wantsUi && hasUiTools) {
-                    currentTools = coreTools
-                    llmEngine.softReset(buildSystemPrompt() + getRollingMemoryString(), currentTools)
-                    Timber.i("lazy_tools: Reverted to Core tools to save context window")
+                    Timber.i("lazy_tools: Swapped tools (UI: $wantsUi, Termux: $wantsTermux)")
                 }
             }
             // -----------------------------------------------------------------------
