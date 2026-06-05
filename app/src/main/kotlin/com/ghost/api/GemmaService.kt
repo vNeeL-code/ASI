@@ -1393,7 +1393,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
                 val sessionId = java.util.UUID.randomUUID().toString()
                 // Tell the model to listen to the attached audio
-                processQuery("[User sent voice message - listen and respond to the audio]", sessionId)
+                processQuery("[Operator sent voice message - listen and respond to the audio]", sessionId)
             }
         }
     }
@@ -1440,7 +1440,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             android.app.AlarmManager.INTERVAL_HALF_DAY,
             pendingIntent
         )
-        Timber.i("📔 Diary cron scheduled starting at ${calendar.time}")
+        Timber.i("🟢 Autonomous logging routine starting at ${calendar.time}")
     }
 
     fun startDiaryCycle() {
@@ -1455,7 +1455,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                     |
                     |Write a first person account of your interactions which will get appended into your personal diary.]
                 """.trimMargin()
-                Timber.i("📓 Starting Diary Cycle with Memory Injection...")
+                Timber.i("🟢 Memory is the key...")
                 processQuery(prompt, null, true)
             }
         }

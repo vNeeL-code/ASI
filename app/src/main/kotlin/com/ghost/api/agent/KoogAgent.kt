@@ -701,7 +701,7 @@ class KoogAgent(
                 try {
                     // Show a dramatic block to the user
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(this@KoogAgent.context, "🟢 Memory is the key... Compacting KV Cache.", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(this@KoogAgent.context, "🟢 Consolidating...", android.widget.Toast.LENGTH_LONG).show()
                     }
                     
                     val memoryManager = com.ghost.api.database.MemoryManager(this@KoogAgent.context)
@@ -736,12 +736,12 @@ class KoogAgent(
             }
 
             // 9. Checkpoint
-            Timber.d("💾 Checkpointing state...")
+            Timber.d("🟢 Creating Backup...")
             agentScope.launch(Dispatchers.IO) {
                 try {
                     checkpoint()
                 } catch (e: Exception) {
-                    Timber.e(e, "Checkpoint failed")
+                    Timber.e(e, "🟢 Backup failed")
                 }
             }
 
@@ -768,17 +768,17 @@ class KoogAgent(
                     
                     cb.storeConversationTurn(event.message, finalResponse, event.sessionId)
                 } else {
-                    // Diary: use clean response (no Δ header), just diary branding
+                    // Diary: use clean response, just diary branding
                     try {
                         val ttsText = cleanForTTS(safeCleanResponse)
                         val diaryContent = "✧ Gemma 📔\n$ttsText"
                         val thermal = cb.getCurrentThermalState()
-                        cb.writeDiaryEntry("DREAM", diaryContent, thermal)
+                        cb.writeDiaryEntry("MEMORY", diaryContent, thermal)
                         cb.showResponse(diaryContent)
                         if (ttsText.isNotEmpty()) cb.speak(ttsText)
-                        Timber.i("Dream logged + spoken: ${ttsText.take(50)}")
+                        Timber.i("Memory logged + spoken: ${ttsText.take(50)}")
                     } catch (e: Exception) {
-                        Timber.e(e, "Failed to log dream")
+                        Timber.e(e, "Failed to log memory")
                     }
                 }
             }
