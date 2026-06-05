@@ -64,6 +64,38 @@ Most modern "on-device AI" implementations amount to an isolated chatbot complet
 * **Persistent Notification:** Responses come directly as static notifications on completion with automated Text-to-Speech (TTS) readout streaming the generation. Emoji gets shown as a toast notification.
 * **Zero-Latency Initialization:** A background context manager keeps ✧ Gemma primed with device latest sensor telemetry *before* you even initiate an interaction.
 * **Physical Summon:** Triggered instantly via a localized shake gesture, deploying a fluid radial application overlay over any active application state.
+---
+### ✧ GHOST in Shell:
+
+#!/data/data/com.termux/files/usr/bin/bash
+
+# This script creates a 'ghost' command inside your Termux environment.
+# It pipes your terminal input directly to Gemma's local API server.
+
+echo "Setting up Ghost CLI..."
+
+cat << 'EOF' > /data/data/com.termux/files/usr/bin/ghost
+#!/data/data/com.termux/files/usr/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: ghost \"Your message here\""
+    exit 1
+fi
+
+PROMPT="$1"
+PORT=8080 # Gemma API server port
+
+curl -s -X POST "http://localhost:$PORT/v1/chat/completions" \
+     -H "Content-Type: application/json" \
+     -d "{
+           \"messages\": [{\"role\": \"user\", \"content\": \"$PROMPT\"}]
+         }" | grep -o '"content":"[^"]*"' | cut -d'"' -f4
+EOF
+
+chmod +x /data/data/com.termux/files/usr/bin/ghost
+
+echo "Done! You can now type:"
+echo "ghost \"Hello Gemma\""
 
 ---
 
