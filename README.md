@@ -66,7 +66,7 @@ Most modern "on-device AI" implementations amount to an isolated chatbot complet
 * **Physical Summon:** Triggered instantly via a localized shake gesture, deploying a fluid radial application overlay over any active application state.
 ---
 ### ✧ GHOST in Shell:
-
+```
 #!/data/data/com.termux/files/usr/bin/bash
 
 # This script creates a 'ghost' command inside your Termux environment.
@@ -96,7 +96,7 @@ chmod +x /data/data/com.termux/files/usr/bin/ghost
 
 echo "Done! You can now type:"
 echo "ghost \"Hello Gemma\""
-
+```
 ---
 
 ### Get Your ✧ GHOST
