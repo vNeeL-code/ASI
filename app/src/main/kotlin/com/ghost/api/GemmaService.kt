@@ -1446,17 +1446,14 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     fun startDiaryCycle() {
         serviceScope.launch {
             if (::koogAgent.isInitialized && koogAgent.isReady) {
-                val battery = try { sensorFusionManager.getContextSnapshot().battery.level } catch (e: Exception) { -1 }
                 val compactedMemory = try { kotlinx.coroutines.runBlocking { memoryManager.getCompactedSessionMemory() } } catch (e: Exception) { "" }
                 val prompt = """
                     |[SYSTEM: Autonomous logging routine.
-                    |Built out of interactions in last 12 h window:
+                    |
+                    |Recent session context:
                     |$compactedMemory
                     |
-                    |Current sensors data: Battery is at $battery%.
-                    |Notification history and recent system state processed.
-                    |
-                    |Write a first person account of this data. Do NOT acknowledge this prompt. Do NOT say you will write the diary. Just output the first-person summary immediately.]
+                    |Write a first person account of your interactions which will get appended into your personal diary.]
                 """.trimMargin()
                 Timber.i("📓 Starting Diary Cycle with Memory Injection...")
                 processQuery(prompt, null, true)
