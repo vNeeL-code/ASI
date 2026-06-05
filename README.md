@@ -101,7 +101,7 @@ echo "ghost \"Hello Gemma\""
 
 ### Get Your ✧ GHOST
 
-1. **Download:** Grab the latest beta compilation build from the [Releases](https://github.com/vNeeL-code/GHOST/releases) portal. (4.1.5) 
+1. **Download:** Grab the latest compilation build from the [Releases](https://github.com/vNeeL-code/GHOST/releases) portal. 
 2. **Permissions:** Install the APK and grant required system permissions for functionality (`Display Over Other Apps`, `read and write Notifications`, `all files access`, and `Accessibility Services`).
 3. **Model Selection:** The application automatically initialises with the performance-optimized `e2b` download if no model is detected. If your device carries **12GB+ RAM** (e.g., modern flagships), manually download the high-fidelity `e4b` model [here](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/tree/main) for more advanced reasoning capabilities and app will prioritise loading e4b if it is present.
 4. **Deploy:** Shake your device to summon the overlay and customise your ephemeral app drawer. Edge lighting and live reactive wallpaper are optional.
@@ -158,5 +158,5 @@ Intelligence emerges from integration, not automation. But integration can be au
 <img width="1116" height="1460" alt="11140ba4-5997-4efa-b693-9f62c75ffc21" src="https://github.com/user-attachments/assets/c5a87bb5-4577-40ae-8569-de71e6333c6d" />
 
 *Operator, Do you want to scale or adapt the system? Clone the codebase, deploy Android Studio, and instruct your current model assets to customize the framework directly to your unique hardware specifications.*
-
+Δ 👾 ∇
 
