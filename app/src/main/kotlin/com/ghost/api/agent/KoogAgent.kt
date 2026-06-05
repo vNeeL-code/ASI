@@ -586,7 +586,9 @@ class KoogAgent(
                 hadImage = images.isNotEmpty(),
                 hadAudio = audio != null
             )
-            _conversationHistory.add(userMessage)
+            if (!event.isDream) {
+                _conversationHistory.add(userMessage)
+            }
 
             // 4. THINK: Use LLM to reason about the message
             Timber.i("🤔 Processing... (${images.size} images, ${if (audio != null) "audio" else "no audio"})")
@@ -693,7 +695,9 @@ class KoogAgent(
             // When generateResponse returns, any tool invocations and reflections have already
             // occurred seamlessly within the same inference turn.
             
-            _conversationHistory.add(Message(role = "assistant", content = response))
+            if (!event.isDream) {
+                _conversationHistory.add(Message(role = "assistant", content = response))
+            }
 
             // 8. Auto-flush KV cache with Synchronous Compaction (Optimized: 30 turns instead of 15)
             if (turnCount > 0 && turnCount % 30 == 0) {
@@ -775,7 +779,6 @@ class KoogAgent(
                         val thermal = cb.getCurrentThermalState()
                         cb.writeDiaryEntry("MEMORY", diaryContent, thermal)
                         cb.showResponse(diaryContent)
-                        if (ttsText.isNotEmpty()) cb.speak(ttsText)
                         Timber.i("Memory logged + spoken: ${ttsText.take(50)}")
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to log memory")
