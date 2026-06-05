@@ -33,7 +33,7 @@ Most modern "on-device AI" implementations amount to an isolated chatbot complet
 
 * **The Brain:** ✧ Gemma 4 running natively on device via `LiteRT-LM`.
 * **The Frame:** An always-on foreground service optimized for Snapdragon, Tensor, and Exynos silicon.
-* **Memory Architecture:** A continuous, persistent conversation layer driven by a rolling KV cache backed by a localized SQLite transaction ledger.
+* **Memory Architecture:** SQlite-VSS, KV cache, Semantic facts (subject/predicate/object), Calendar Diary entry (timestamped observations).
 * **Omnimodal Context:** network/bluetooth/media/storage/memory/temp/accelerometer/gyroscope
 * **Vision:** Native screenshot parsing and instant image shares directly from the Android Gallery.
 * **Audio:** Streamlined push-to-talk mic capture with a quick physical "shake-to-cancel" gesture override.
