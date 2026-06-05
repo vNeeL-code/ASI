@@ -22,6 +22,7 @@ class MCPServer(
     private val hardwareTools: HardwareToolSet,
     private val networkTools: NetworkToolSet,
     private val systemTools: SystemToolSet,
+    private val uiMacroTools: com.ghost.api.hardware.UiMacroToolSet,
     private val audioRecorder: AudioRecorder,
     val sensorManager: SensorFusionManager,
     private val memoryManager: MemoryManager,
@@ -122,22 +123,21 @@ class MCPServer(
                 // Screen / Accessibility
                 "click" -> {
                     val target = params["target"]?.toString() ?: ""
-                    val res = systemTools.click(target)
+                    val res = uiMacroTools.click(target)
                     ToolResult(res["result"] == "success", "Clicked: $target")
                 }
                 "scroll" -> {
                     val direction = params["direction"]?.toString() ?: "DOWN"
-                    val res = systemTools.scroll(direction)
+                    val res = uiMacroTools.scroll(direction)
                     ToolResult(res["result"] == "success", "Scrolled: $direction")
                 }
                 "navigate" -> {
                     val action = params["action"]?.toString() ?: "BACK"
-                    val res = systemTools.navigate(action)
+                    val res = uiMacroTools.navigate(action)
                     ToolResult(res["result"] == "success", "Navigate: $action")
                 }
                 "take_screenshot" -> {
-                    val res = systemTools.take_screenshot()
-                    ToolResult(res["result"] == "success", res["message"] ?: "")
+                    ToolResult(false, "Screenshot not supported via MCP")
                 }
                 // Memory
                 "remember" -> {
@@ -154,7 +154,7 @@ class MCPServer(
                 // Shell (Termux pipe)
                 "bash" -> {
                     val command = params["command"]?.toString() ?: ""
-                    val res = systemTools.bash(command)
+                    val res = uiMacroTools.bash(command)
                     ToolResult(res["result"] == "success", res["output"] ?: res["message"] ?: "")
                 }
                 // Network

@@ -13,10 +13,11 @@ import timber.log.Timber
         ConversationTurn::class,
         ConversationTurnFts::class,
         SemanticFact::class,
+        SemanticFactFts::class,
         AgentState::class,
         DiaryEntry::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false  // Disable schema export to fix build warning
 )
 abstract class OracleDatabase : RoomDatabase() {
@@ -63,6 +64,16 @@ abstract class OracleDatabase : RoomDatabase() {
         }
 
         /**
+         * Migration 4→5: Added FTS table for semantic facts
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                Timber.i("OracleDatabase: Migrating 4→5 (SemanticFacts FTS)")
+                db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS `semantic_facts_fts` USING FTS4(`subject`, `predicate`, `object_`, content=`semantic_facts`)")
+            }
+        }
+
+        /**
          * Migration 1→2: Added diary_entries table
          */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -89,13 +100,13 @@ abstract class OracleDatabase : RoomDatabase() {
                 )
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 // Apply migrations in order
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 // CRITICAL: If ANY migration fails, wipe the database rather than crash.
                 // Data loss is acceptable vs bootloop.
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
-                Timber.i("OracleDatabase: Initialized (version 4)")
+                Timber.i("OracleDatabase: Initialized (version 5)")
                 instance
             }
         }

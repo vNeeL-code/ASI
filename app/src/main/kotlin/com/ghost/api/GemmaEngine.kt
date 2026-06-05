@@ -249,8 +249,11 @@ class GemmaEngine(private val context: Context) : LlmBackend {
 
     private var isAborted = false
 
-    override suspend fun softReset(systemPrompt: String) {
+    override suspend fun softReset(systemPrompt: String, newToolSets: List<ToolSet>?) {
         lastSystemPrompt = systemPrompt
+        if (newToolSets != null) {
+            this.toolSets = newToolSets
+        }
         sessionMutex.withLock {
             val eng = engine ?: return@withLock
             try {

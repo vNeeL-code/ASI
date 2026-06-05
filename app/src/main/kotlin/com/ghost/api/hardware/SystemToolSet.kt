@@ -191,102 +191,47 @@ class SystemToolSet(private val context: Context) : ToolSet {
         }
     }
 
-    @Tool(description = "Takes a screenshot")
-    fun take_screenshot(): Map<String, String> {
-        val intent = Intent("com.ghost.api.ACTION_REQUEST_SCREENSHOT").setPackage(context.packageName)
-        context.sendBroadcast(intent)
-        return mapOf("result" to "success", "message" to "Screenshot requested")
-    }
+    // Automation tools moved to UiMacroToolSet
 
-    @Tool(description = "Click UI element")
-    fun click(
-        @ToolParam(description = "Text or description of element to click") target: String
-    ): Map<String, String> {
-        val success = com.ghost.api.GemmaAccessibilityService.instance?.performClick(target) ?: false
-        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
-    }
-
-    @Tool(description = "Scroll screen")
-    fun scroll(
-        @ToolParam(description = "Direction: up, down, left, right") direction: String
-    ): Map<String, String> {
-        val success = com.ghost.api.GemmaAccessibilityService.instance?.performScroll(direction) ?: false
-        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
-    }
-
-    @Tool(description = "Navigate Android")
-    fun navigate(
-        @ToolParam(description = "Action: home, back, recents, notifications") action: String
-    ): Map<String, String> {
-        val success = com.ghost.api.GemmaAccessibilityService.instance?.performGlobal(action) ?: false
-        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
-    }
-
-    @Tool(description = "Read current screen text semantics")
-    fun read_screen(): Map<String, String> {
-        val content = com.ghost.api.GemmaAccessibilityService.getSemantics() ?: "[[SCREEN NOT ACCESSIBLE]]"
-        return mapOf("result" to "success", "content" to content)
-    }
-
-    @Tool(description = "Type text into focused element")
-    fun type(text: String): Map<String, String> {
-        val success = com.ghost.api.GemmaAccessibilityService.instance?.performType(text) ?: false
-        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
-    }
-
-    @Tool(description = "Open email app to compose an email")
-    fun open_email(email: String, subject: String = "", body: String = ""): Map<String, String> {
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = android.net.Uri.parse("mailto:")
-            putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
-            putExtra(Intent.EXTRA_SUBJECT, subject)
-            putExtra(Intent.EXTRA_TEXT, body)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(intent)
-        return mapOf("result" to "success", "message" to "Email app opened")
-    }
-
-    @Tool(description = "Run a shell/bash command")
-    fun bash(
-        @ToolParam(description = "The command") command: String
-    ): Map<String, String> {
-        com.ghost.api.GemmaService.instance?.showPipContent("Terminal", "Executing: $command")
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-            process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            mapOf("result" to "success", "output" to output.take(2000))
-        } catch (e: Exception) { mapOf("result" to "error", "message" to e.message.toString()) }
-    }
-
-    @Tool(description = "Saves memory")
+    @Tool(description = "Saves a semantic fact memory")
     fun remember(
-        @ToolParam(description = "Memory title") title: String, 
-        @ToolParam(description = "Memory content") content: String
+        @ToolParam(description = "Memory title/subject") title: String, 
+        @ToolParam(description = "Memory content/fact") content: String
     ): Map<String, String> {
-        DiaryManager(context).storeMemory(title, content)
-        return mapOf("result" to "success", "message" to "Stored: $title")
-    }
-
-    @Tool(description = "Recalls memory")
-    fun recall(
-        @ToolParam(description = "Search query") query: String
-    ): Map<String, String> {
-        val memories = DiaryManager(context).searchMemories(query)
-        return mapOf("result" to "success", "memories" to memories.joinToString("\n---\n"))
-    }
-
-    @Tool(description = "Replies to a notification")
-    fun reply_notification(
-        @ToolParam(description = "Package name of the app (e.g. com.whatsapp)") packageName: String,
-        @ToolParam(description = "The text to send") text: String
-    ): Map<String, String> {
-        val success = com.ghost.api.GemmaNotificationListener.replyTo(packageName, text)
-        return if (success) {
-            mapOf("result" to "success", "message" to "Reply sent")
-        } else {
-            mapOf("result" to "error", "message" to "No reply action found for $packageName")
+        kotlinx.coroutines.runBlocking {
+            com.ghost.api.database.MemoryManager(context).storeSemanticFact(title, content)
         }
+        return mapOf("result" to "success", "message" to "Factored into Semantic Memory: $title")
     }
+
+    @Tool(description = "Recalls memory from both Semantic DB and Calendar")
+    fun recall(
+        @ToolParam(description = "Search query keyword") query: String
+    ): Map<String, String> {
+        // 1. Query Episodic Memory (Calendar)
+        val episodicMemories = DiaryManager(context).searchMemories(query)
+        
+        // 2. Query Semantic Memory (FTS4 DB)
+        val semanticMemories = kotlinx.coroutines.runBlocking {
+            com.ghost.api.database.MemoryManager(context).searchSemanticFacts(query)
+        }
+        
+        val merged = buildString {
+            if (episodicMemories.isNotEmpty()) {
+                append("[EPISODIC / CALENDAR]\n")
+                episodicMemories.forEach { append("- $it\n") }
+                append("\n")
+            }
+            if (semanticMemories.isNotEmpty()) {
+                append("[SEMANTIC / FACTS]\n")
+                semanticMemories.forEach { append("- ${it.subject}: ${it.object_}\n") }
+            }
+        }.trim()
+        
+        if (merged.isEmpty()) {
+            return mapOf("result" to "success", "memories" to "No memories found for '$query'.")
+        }
+        return mapOf("result" to "success", "memories" to merged)
+    }
+
 }

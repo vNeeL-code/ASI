@@ -41,6 +41,14 @@ data class SemanticFact(
     val sourceConversationId: Long
 )
 
+@androidx.room.Fts4(contentEntity = SemanticFact::class)
+@Entity(tableName = "semantic_facts_fts")
+data class SemanticFactFts(
+    val subject: String,
+    val predicate: String,
+    val object_: String
+)
+
 /**
  * Agent state tracking (metadata, not roleplay)
  * E.g., battery level observations, system status annotations

@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 
 interface LlmBackend {
     val activeBackend: String?
-    suspend fun softReset(systemPrompt: String)
+    suspend fun softReset(systemPrompt: String, newToolSets: List<com.google.ai.edge.litertlm.ToolSet>? = null)
     suspend fun hardReset()
     suspend fun cleanup()
     

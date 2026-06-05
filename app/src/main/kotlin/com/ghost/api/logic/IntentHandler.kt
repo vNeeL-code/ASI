@@ -147,21 +147,20 @@ object IntentHandler {
                 }
                 "click" -> {
                     val target = json.optString("target", "")
-                    com.ghost.api.hardware.SystemToolSet(context).click(target)
+                    com.ghost.api.hardware.UiMacroToolSet(context).click(target)
                     true
                 }
                 "scroll" -> {
                     val direction = json.optString("direction", "DOWN")
-                    com.ghost.api.hardware.SystemToolSet(context).scroll(direction)
+                    com.ghost.api.hardware.UiMacroToolSet(context).scroll(direction)
                     true
                 }
                 "navigate" -> {
                     val navAction = json.optString("action", "BACK")
-                    com.ghost.api.hardware.SystemToolSet(context).navigate(navAction)
+                    com.ghost.api.hardware.UiMacroToolSet(context).navigate(navAction)
                     true
                 }
                 "take_screenshot" -> {
-                    com.ghost.api.hardware.SystemToolSet(context).take_screenshot()
                     true
                 }
                 "remember" -> {
@@ -177,7 +176,7 @@ object IntentHandler {
                 }
                 "bash" -> {
                     val command = json.optString("command", "")
-                    com.ghost.api.hardware.SystemToolSet(context).bash(command)
+                    com.ghost.api.hardware.UiMacroToolSet(context).bash(command)
                     true
                 }
                 "web_search" -> {

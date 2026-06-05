@@ -41,6 +41,14 @@ interface SemanticFactDao {
 
     @Query("SELECT * FROM semantic_facts ORDER BY extractedAt DESC LIMIT :limit")
     suspend fun getRecentFacts(limit: Int = 100): List<SemanticFact>
+
+    @Query("""
+        SELECT sf.* FROM semantic_facts sf
+        JOIN semantic_facts_fts fts ON sf.id = fts.rowid
+        WHERE semantic_facts_fts MATCH :keyword
+        ORDER BY sf.confidence DESC
+    """)
+    suspend fun searchByKeyword(keyword: String): List<SemanticFact>
 }
 
 @Dao

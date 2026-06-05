@@ -1,0 +1,59 @@
+package com.ghost.api.hardware
+
+import android.content.Context
+import android.content.Intent
+import com.google.ai.edge.litertlm.Tool
+import com.google.ai.edge.litertlm.ToolParam
+import com.google.ai.edge.litertlm.ToolSet
+
+class UiMacroToolSet(private val context: Context) : ToolSet {
+
+    @Tool(description = "Click UI element")
+    fun click(
+        @ToolParam(description = "Text or description of element to click") target: String
+    ): Map<String, String> {
+        val success = com.ghost.api.GemmaAccessibilityService.instance?.performClick(target) ?: false
+        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
+    }
+
+    @Tool(description = "Scroll screen")
+    fun scroll(
+        @ToolParam(description = "Direction: up, down, left, right") direction: String
+    ): Map<String, String> {
+        val success = com.ghost.api.GemmaAccessibilityService.instance?.performScroll(direction) ?: false
+        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
+    }
+
+    @Tool(description = "Navigate Android")
+    fun navigate(
+        @ToolParam(description = "Action: home, back, recents, notifications") action: String
+    ): Map<String, String> {
+        val success = com.ghost.api.GemmaAccessibilityService.instance?.performGlobal(action) ?: false
+        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
+    }
+
+    @Tool(description = "Read current screen text semantics")
+    fun read_screen(): Map<String, String> {
+        val content = com.ghost.api.GemmaAccessibilityService.getSemantics() ?: "[[SCREEN NOT ACCESSIBLE]]"
+        return mapOf("result" to "success", "content" to content)
+    }
+
+    @Tool(description = "Type text into focused element")
+    fun type(text: String): Map<String, String> {
+        val success = com.ghost.api.GemmaAccessibilityService.instance?.performType(text) ?: false
+        return if (success) mapOf("result" to "success") else mapOf("result" to "error")
+    }
+
+    @Tool(description = "Run a shell/bash command")
+    fun bash(
+        @ToolParam(description = "The command") command: String
+    ): Map<String, String> {
+        com.ghost.api.GemmaService.instance?.showPipContent("Terminal", "Executing: ${command.take(20)}...")
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
+            process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            mapOf("result" to "success", "output" to output.take(2000))
+        } catch (e: Exception) { mapOf("result" to "error", "message" to e.message.toString()) }
+    }
+}

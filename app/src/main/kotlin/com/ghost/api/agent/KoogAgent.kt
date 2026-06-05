@@ -37,8 +37,11 @@ class KoogAgent(
     private val contextManager: com.ghost.api.logic.ContextManager,
     private val skillManager: com.ghost.api.skills.SkillManager,
     private val checkpointDir: File,
+    private val coreTools: List<com.google.ai.edge.litertlm.ToolSet> = emptyList(),
+    private val uiTools: List<com.google.ai.edge.litertlm.ToolSet> = emptyList(),
     private val callbacks: AgentPlatformCallbacks? = null
 ) {
+    private var currentTools = coreTools
     // Agent's own coroutine scope for fire-and-forget operations (KV flush, etc.)
     private val agentScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -204,9 +207,9 @@ class KoogAgent(
         // Set the single authoritative system prompt on the engine
         try {
             val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
-            llmEngine.softReset(systemPrompt)
+            llmEngine.softReset(systemPrompt, currentTools)
             turnsSinceKvFlush = 0
-            Timber.i("KoogAgent: System prompt set via softReset")
+            Timber.i("KoogAgent: System prompt set via softReset with tools")
         } catch (e: Exception) {
             Timber.e(e, "KoogAgent: Failed to set initial system prompt")
         }
@@ -349,7 +352,7 @@ class KoogAgent(
     suspend fun softReset() {
         clearHistory()
         val systemPrompt = buildSystemPrompt()
-        llmEngine.softReset(systemPrompt)
+        llmEngine.softReset(systemPrompt, currentTools)
         turnsSinceKvFlush = 0
         Timber.i("KoogAgent: Soft reset complete")
     }
@@ -567,6 +570,23 @@ class KoogAgent(
                 callbacks?.updateNotification("(╭r_•́)")
             }
 
+            // --- Tiered Tool Loading (Lazy inject heavy UI macros if requested) ---
+            if (!event.isDream && uiTools.isNotEmpty()) {
+                val wantsUi = listOf("tap", "click", "scroll", "type", "navigate", "terminal", "bash", "screen").any { event.message.contains(it, ignoreCase = true) }
+                val hasUiTools = currentTools.containsAll(uiTools)
+                
+                if (wantsUi && !hasUiTools) {
+                    currentTools = coreTools + uiTools
+                    llmEngine.softReset(buildSystemPrompt() + getRollingMemoryString(), currentTools)
+                    Timber.i("lazy_tools: Injected heavy UI/Automation tools")
+                } else if (!wantsUi && hasUiTools) {
+                    currentTools = coreTools
+                    llmEngine.softReset(buildSystemPrompt() + getRollingMemoryString(), currentTools)
+                    Timber.i("lazy_tools: Reverted to Core tools to save context window")
+                }
+            }
+            // -----------------------------------------------------------------------
+
             // 1. PERCEIVE: Gather context (Tiered)
             Timber.i("👁️ Perceiving device state...")
             val context = perceive()
@@ -732,7 +752,7 @@ class KoogAgent(
                     }
 
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
-                    llmEngine.softReset(systemPrompt)
+                    llmEngine.softReset(systemPrompt, currentTools)
                     turnsSinceKvFlush = 0
                 } catch (e: Exception) {
                     Timber.w(e, "Auto-flush failed (non-fatal)")

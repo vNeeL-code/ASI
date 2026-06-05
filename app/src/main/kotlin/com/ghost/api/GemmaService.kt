@@ -296,6 +296,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     private lateinit var systemToolSet: SystemToolSet // Apps & Media Bridge
     private lateinit var automationToolSet: AutomationToolSet // Cron Bridge
     private lateinit var termuxAdbToolSet: TermuxAdbToolSet // Power User Bridge
+    private lateinit var uiMacroToolSet: com.ghost.api.hardware.UiMacroToolSet // UI Automation Bridge
     private lateinit var shakeDetector: ShakeDetector // Shake to summon
     private lateinit var overlayManager: OverlayManager // Floating input
     private lateinit var audioRecorder: AudioRecorder // Hearing
@@ -369,6 +370,8 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             automationToolSet = AutomationToolSet(this) // Init Cron Bridge
             reportStatus("Init: TermuxAdbToolSet...")
             termuxAdbToolSet = TermuxAdbToolSet(this) // Init Power User Bridge
+            reportStatus("Init: UiMacroToolSet...")
+            uiMacroToolSet = com.ghost.api.hardware.UiMacroToolSet(this) // Init UI Automation
             reportStatus("Init: AudioRecorder...")
             audioRecorder = AudioRecorder(this) // Init Hearing
 
@@ -416,6 +419,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 hardwareTools = hardwareToolSet,
                 networkTools = networkToolSet,
                 systemTools = systemToolSet,
+                uiMacroTools = uiMacroToolSet,
                 audioRecorder = audioRecorder,
                 sensorManager = sensorFusionManager,
                 memoryManager = memoryManager,
@@ -633,11 +637,13 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 "CPU"
             } else null
 
+            // Determine Tools
+            val coreTools = listOf(hardwareToolSet, networkToolSet, systemToolSet, automationToolSet, termuxAdbToolSet,
+                com.ghost.api.skills.SkillToolSet(skillManager))
+            val uiTools = listOf(uiMacroToolSet)
+
             // Engine Creation (Locked to prevent double allocation)
             val newEngine = engineMutex.withLock {
-                val tools = listOf(hardwareToolSet, networkToolSet, systemToolSet, automationToolSet, termuxAdbToolSet,
-                    com.ghost.api.skills.SkillToolSet(skillManager))
-                
                 // CRITICAL: Cleanup old engine BEFORE creating new one to free RAM
                 engineRef.getAndSet(null)?.cleanup()
                 
@@ -649,7 +655,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 val error = engineInstance.initialize(
                     modelFile.absolutePath, 
                     "", 
-                    toolSets = tools, 
+                    toolSets = coreTools, 
                     forcedBackend = forcedBackend
                 )
                 
@@ -690,6 +696,8 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 contextManager = contextManager,
                 skillManager = skillManager,
                 checkpointDir = getExternalFilesDir(null) ?: filesDir,
+                coreTools = coreTools,
+                uiTools = uiTools,
                 callbacks = this@GemmaService
             )
 

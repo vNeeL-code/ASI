@@ -10,6 +10,7 @@ class MemoryManager(private val context: Context) {
     private val db = OracleDatabase.getDatabase(context)
     private val conversationDao = db.conversationDao()
     private val diaryDao = db.diaryDao()
+    private val semanticFactDao = db.semanticFactDao()
     
     private val sessionMemoryFile = java.io.File(context.filesDir, "session_memory.txt")
 
@@ -87,6 +88,28 @@ class MemoryManager(private val context: Context) {
 
     suspend fun rebuildSearchIndex() = withContext(Dispatchers.IO) {
         timber.log.Timber.d("FTS index is managed automatically by Room")
+    }
+
+    suspend fun storeSemanticFact(title: String, content: String) = withContext(Dispatchers.IO) {
+        val fact = SemanticFact(
+            extractedAt = System.currentTimeMillis(),
+            factType = "factoid",
+            subject = title,
+            predicate = "is",
+            object_ = content,
+            confidence = 1.0f,
+            sourceConversationId = -1L
+        )
+        semanticFactDao.insertFact(fact)
+    }
+
+    suspend fun searchSemanticFacts(query: String): List<SemanticFact> = withContext(Dispatchers.IO) {
+        try {
+            semanticFactDao.searchByKeyword(query)
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Semantic Fact Search failed")
+            emptyList()
+        }
     }
     
     suspend fun getRecentDiaryEntries(limit: Int = 50): List<DiaryEntry> = withContext(Dispatchers.IO) {
