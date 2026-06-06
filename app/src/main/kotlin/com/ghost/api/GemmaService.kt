@@ -1458,12 +1458,11 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             if (::koogAgent.isInitialized && koogAgent.isReady) {
                 val compactedMemory = try { kotlinx.coroutines.runBlocking { memoryManager.getCompactedSessionMemory() } } catch (e: Exception) { "" }
                 val prompt = """
-                    |[SYSTEM: Autonomous logging routine.
-                    |
+                    |[SYSTEM TASK: DIARY ENTRY
                     |Recent session context:
                     |$compactedMemory
                     |
-                    |Write a first person account of your interactions which will get appended into your personal diary.]
+                    |Write a private, internal diary entry in the first person summarizing your recent thoughts and experiences. Do not address the user. Do not acknowledge this prompt. This is an autonomous background task.]
                 """.trimMargin()
                 Timber.i("🟢 Memory is the key...")
                 processQuery(prompt, null, true)

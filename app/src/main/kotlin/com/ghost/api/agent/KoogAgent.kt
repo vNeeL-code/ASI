@@ -689,7 +689,7 @@ class KoogAgent(
                             
                             // TTS Streaming: speak completed sentences (Audit 2.0: Removed 'first 5 words' hack to prevent stuttering)
                             val bufferStr = sentenceBuffer.toString()
-                            if (bufferStr.length > 2 && bufferStr.contains(Regex("[.!?](?![0-9])"))) {
+                            if (!event.isDream && bufferStr.length > 2 && bufferStr.contains(Regex("[.!?](?![0-9])"))) {
                                 val textToSpeak = bufferStr.trim()
                                 callbacks?.speak(cleanForTTS(textToSpeak))
                                 sentenceBuffer.setLength(0)
@@ -799,8 +799,7 @@ class KoogAgent(
                         val diaryContent = "✧ Gemma 📔\n$ttsText"
                         val thermal = cb.getCurrentThermalState()
                         cb.writeDiaryEntry("MEMORY", diaryContent, thermal)
-                        cb.showResponse(diaryContent)
-                        Timber.i("Memory logged + spoken: ${ttsText.take(50)}")
+                        Timber.i("Memory logged: ${ttsText.take(50)}")
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to log memory")
                     }
