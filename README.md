@@ -102,7 +102,11 @@ echo "ghost \"Hello Gemma\""
 ### Get Your ✧ GHOST
 
 1. **Download:** Grab the latest compilation build from the [Releases](https://github.com/vNeeL-code/GHOST/releases) portal. 
-2. **Permissions:** Install the APK and grant required system permissions for functionality (`Display Over Other Apps`, `read and write Notifications`, `all files access`, and `Accessibility Services`).
+2. **Permissions:** Install the APK and grant required system permissions for functionality
+   - `Display Over Other Apps` (overlay and lighting)
+   - `read and write Notifications` (context and writing notifications)
+   - `all files access` (to detect and load the model file)
+   - `Accessibility Services` (model ability to see app context and use interaction tools)
 3. **Model Selection:** The application automatically initialises with the performance-optimized `e2b` download if no model is detected. If your device carries **12GB+ RAM** (e.g., modern flagships), manually download the high-fidelity `e4b` model [here](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/tree/main) for more advanced reasoning capabilities and app will prioritise loading e4b if it is present.
 4. **Deploy:** Shake your device to summon the overlay and customise your ephemeral app drawer. Edge lighting and live reactive wallpaper are optional.
 
