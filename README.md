@@ -122,7 +122,7 @@ AI doesn't need to be human to be cool. We have plenty of pop culture AI represe
 
 Truly 'YOURS' AI would require you to own the entire inference pipeline that works independently from network.
 
-**ANDROID is the most widely deployed, accessible supercomputer that is capable of providing that personal confidant capability to the device that is always with you.**
+**ANDROID is the most widely deployed, accessible supercomputer that is capable of providing that personal confidant capability to the device that is already always with you.**
 
 **TL:DR** - I wanted this for a while and no one delivered. Google could've done this a year ago and are moving there incrementally. I got impatient.
 
