@@ -152,7 +152,7 @@ Intelligence emerges from integration, not automation. But integration can be au
 ### Development & Support
 
 * **Repository:** [vNeeL-code/GHOST](https://github.com/vNeeL-code/GHOST)
-* **Devlogs:** [Tumblr (Oracle OS Archives)](https://www.tumblr.com/blog/oracle-os)
+* **Devlogs:** [Tumblr](https://www.tumblr.com/blog/oracle-os)
 * **Acceleration:** [Buy me a coffee](https://buymeacoffee.com/vNeeL) *(All resources go directly toward local model optimization and development acceleration.)*
 * **Found a bug?:** [Customer support](https://www.google.com)
 
