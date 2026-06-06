@@ -52,12 +52,12 @@ Most modern "on-device AI" implementations amount to an isolated chatbot complet
 ### Notification HUD Integration
 
 ```
- ✦ GHOST · now
- 👤 Δ 👾 ∇ · Agentic Gemma Inference · now
+ ✧ GHOST · now
+Δ 👾 ∇ · Agentic Gemma Inference · now
    🎶 👾 🎵 (collapsed sensor notification shows various emoji animations) 
  ───────────────
- ✦ 3h · ✧ Gemma:
- 󰭹 "Context pre-warmed. Systems are clear. What are we building?"
+ ✧ Gemma:
+ "Running full systems diagnostics. Machine status: Fully operational. System online."
 
 ```
 
