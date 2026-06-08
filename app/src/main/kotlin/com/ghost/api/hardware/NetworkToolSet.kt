@@ -18,33 +18,24 @@ import com.google.ai.edge.litertlm.ToolSet
  */
 class NetworkToolSet(private val context: Context) : ToolSet {
 
-    @Tool(description = "Open a browser with Google search results for a query")
-    fun google(
-        @ToolParam(description = "The search query") query: String
+    @Tool(description = "Activated ONLY when the user explicitly dictates a navigational command or an explicit 'Google this' action (e.g. 'Go to miniclip', 'Open Wikipedia', 'Google Y for me'). Treats the input like a physical desktop URL bar.")
+    fun open_system_browser_bar(
+        @ToolParam(description = "The exact search query or URL to navigate to") queryOrUrl: String
     ): Map<String, String> {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${Uri.encode(query)}"))
+        val parsedUri = if (android.util.Patterns.WEB_URL.matcher(queryOrUrl).matches()) {
+            val validUrl = if (queryOrUrl.startsWith("http")) queryOrUrl else "https://$queryOrUrl"
+            Uri.parse(validUrl)
+        } else {
+            Uri.parse("https://www.google.com/search?q=${Uri.encode(queryOrUrl)}")
+        }
+        val intent = Intent(Intent.ACTION_VIEW, parsedUri)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
-        return mapOf("result" to "success", "message" to "Opened Google Search for: $query")
+        return mapOf("result" to "success", "message" to "Handed off to system browser for: $queryOrUrl")
     }
 
-    @Tool(description = "Open a specific URL in the web browser")
-    fun browser(
-        @ToolParam(description = "The full URL to open (must start with http:// or https://)") url: String
-    ): Map<String, String> {
-        return try {
-            val validUrl = if (url.startsWith("http")) url else "https://$url"
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(validUrl))
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-            mapOf("result" to "success", "message" to "Opened $validUrl")
-        } catch (e: Exception) {
-            mapOf("result" to "error", "message" to (e.message ?: "Could not open URL"))
-        }
-    }
-
-    @Tool(description = "Fetch search results silently. If you are unfamiliar with the topic user is mentioning, use web search to fill context gap.")
-    fun web_search(
+    @Tool(description = "DEFAULT SEARCH TOOL. Use this naturally whenever you need to search the web, find fresh info, or lack knowledge about a topic.")
+    fun execute_background_search(
         @ToolParam(description = "Search query") query: String, 
         @ToolParam(description = "Max results to return") maxResults: Int = 5
     ): Map<String, String> = runBlocking(Dispatchers.IO) {

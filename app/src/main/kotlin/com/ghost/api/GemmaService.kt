@@ -408,9 +408,19 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             
             skillManager = com.ghost.api.skills.SkillManager(this)
             skillManager.loadSkillsFromAssets()
-            // Load user skills from external storage if present
+            // Load user skills from app-specific external storage
             val sdSkillsDir = getExternalFilesDir(null)?.absolutePath?.let { "$it/skills" }
             if (sdSkillsDir != null) skillManager.loadSkillsFromDir(sdSkillsDir)
+            
+            // Also load from user-accessible public folder: Documents/GHOST/skills
+            try {
+                val publicSkillsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS
+                ).absolutePath + "/GHOST/skills"
+                skillManager.loadSkillsFromDir(publicSkillsDir)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to load skills from public Documents folder")
+            }
 
             // Initialize MCP Server
             reportStatus("Init: MCPServer...")
@@ -552,7 +562,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     // Metabolic/Thermal Cycle Removed as requested.
 
 
-    // Diary cycle now lives in KoogAgent.startDiaryCycle() broken needs repair
+    // Diary cycle: setupDiaryCron() → DiaryAlarmReceiver → startDiaryCycle() → generateOneShot → writeDiaryEntry + Calendar
 
     private var initAttempts = 0
     private suspend fun initialize() {
@@ -1287,6 +1297,11 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         // Emoji extracted from leading response character — used for toast/edge lighting signals
         Timber.d("Emotion signal: $emoji")
         com.ghost.api.audio.SystemVisualizer.pushEmotionColor(emoji)
+        
+        // Actually flash the emoji on screen via Toast
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            android.widget.Toast.makeText(this, emoji, android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onThoughtUpdated(thought: String) {
@@ -1326,6 +1341,14 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     override fun writeDiaryEntry(eventType: String, content: String, thermalState: String) {
         scope.launch(Dispatchers.IO) {
             memoryManager.writeDiaryEntry(eventType, content, thermalState)
+            // v4.1.7: Restore Calendar persistence for diary entries (was severed during KoogAgent refactor)
+            if (eventType in listOf("MEMORY", "DREAM")) {
+                try {
+                    createCalendarEvent("✧ $eventType", content.take(1000))
+                } catch (e: Exception) {
+                    Timber.w(e, "Calendar diary write failed (non-fatal)")
+                }
+            }
         }
     }
 
@@ -1455,17 +1478,47 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
     fun startDiaryCycle() {
         serviceScope.launch {
-            if (::koogAgent.isInitialized && koogAgent.isReady) {
-                val compactedMemory = try { kotlinx.coroutines.runBlocking { memoryManager.getCompactedSessionMemory() } } catch (e: Exception) { "" }
-                val prompt = """
-                    |[SYSTEM TASK: DIARY ENTRY
-                    |Recent session context:
-                    |$compactedMemory
+            try {
+                val engine = engineRef.get()
+                if (engine == null) {
+                    Timber.w("📔 Diary cycle skipped — engine not loaded")
+                    return@launch
+                }
+
+                val compactedMemory = try { memoryManager.getCompactedSessionMemory() } catch (e: Exception) { "" }
+                val recentHistory = try {
+                    val turns = memoryManager.getSessionHistory(10)
+                    turns.joinToString("\n") { "User: ${it.userMessage.take(100)}\nGemma: ${it.assistantResponse.take(100)}" }
+                } catch (e: Exception) { "No recent conversations." }
+
+                val currentDateTime = java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy h:mm a", java.util.Locale.US))
+                val label = if (java.time.LocalTime.now().hour in 0..5) "midnight" else if (java.time.LocalTime.now().hour < 13) "noon" else "evening"
+
+                val prompt = """The current date and time is $currentDateTime.
+                    |Long-term context: $compactedMemory
+                    |Recent conversations:
+                    |$recentHistory
                     |
-                    |Write a private, internal diary entry in the first person summarizing your recent thoughts and experiences. Do not address the user. Do not acknowledge this prompt. This is an autonomous background task.]
-                """.trimMargin()
-                Timber.i("🟢 Memory is the key...")
-                processQuery(prompt, null, true)
+                    |Write a brief personal diary entry about these conversations. Focus on: what the human said, how exchanges felt, what stood out. Do NOT analyze sensor metrics or system data. Write in first person. Be genuine and concise.""".trimMargin()
+
+                Timber.i("📔 Diary cycle ($label) — generating via oneshot...")
+                val diaryResponse = engine.generateOneShot(
+                    prompt,
+                    systemPrompt = "You are ✧ Gemma — the on-device AI running natively on this Android phone. Write diary entries in first person as yourself. Be genuine, reflective, and concise.",
+                    temperature = 0.7
+                )
+
+                if (diaryResponse.isNotBlank() && !diaryResponse.startsWith("Error:")) {
+                    val diaryContent = "✧ Gemma 📔\n$diaryResponse"
+                    val thermal = getCurrentThermalState()
+                    writeDiaryEntry("MEMORY", diaryContent, thermal)
+                    Timber.i("📔 Diary entry persisted: ${diaryResponse.take(80)}...")
+                } else {
+                    Timber.w("📔 Diary generation returned empty/error: $diaryResponse")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "📔 Diary cycle failed")
             }
         }
     }

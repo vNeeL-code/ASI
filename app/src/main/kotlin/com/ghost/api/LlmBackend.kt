@@ -8,7 +8,7 @@ interface LlmBackend {
     suspend fun hardReset()
     suspend fun cleanup()
     
-    suspend fun generateOneShot(prompt: String): String
+    suspend fun generateOneShot(prompt: String, systemPrompt: String? = null, temperature: Double? = null): String
     
     suspend fun generateResponse(
         prompt: String,

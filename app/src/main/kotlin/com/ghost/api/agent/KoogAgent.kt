@@ -506,7 +506,16 @@ class KoogAgent(
                     inThinkBlock -> {
                         thinkBuffer.append(token) // Accumulate thought, don't emit
                     }
-                    else -> onToken(token)
+                    else -> {
+                        // v4.1.7: Strip Gemma 4 protocol tokens from SSE stream
+                        val cleaned = token
+                            .replace("<|\"|>", "")
+                            .replace(Regex("<\\|turn>|<turn\\|>"), "")
+                            .replace(Regex("<\\|tool>|<tool\\|>"), "")
+                            .replace(Regex("<\\|tool_call>|<tool_call\\|>"), "")
+                            .replace(Regex("<\\|tool_response>|<tool_response\\|>"), "")
+                        if (cleaned.isNotEmpty()) onToken(cleaned)
+                    }
                 }
             },
             onComplete = { fullResponse ->
@@ -673,14 +682,15 @@ class KoogAgent(
                     }
                     
                     if (cleanToken.isNotEmpty()) {
-                        // Extract leading emoji for toast & strip identity markers on first token
+                        // Strip leading whitespace/artifacts from the very first token
                         if (responseBuffer.isEmpty()) {
-                            val emojiMatch = Regex("^[\\s]*([\\x{1F300}-\\x{1F9FF}|\\x{2600}-\\x{26FF}|\\x{2700}-\\x{27BF}])").find(cleanToken)
-                            if (emojiMatch != null) {
-                                callbacks?.onEmotionSignal(emojiMatch.groupValues[1])
-                                cleanToken = cleanToken.replaceFirst(emojiMatch.groupValues[1], "")
-                            }
                             cleanToken = cleanToken.trimStart { it == ' ' || it == 'Δ' || it == '∇' || it == '\n' || it == '\r' }
+                        }
+                        
+                        // Extract ANY emoji that appears naturally in the stream to trigger the emotion visualizer
+                        val emojiMatch = Regex("([\\x{1F300}-\\x{1F9FF}|\\x{2600}-\\x{26FF}|\\x{2700}-\\x{27BF}])").find(cleanToken)
+                        if (emojiMatch != null) {
+                            callbacks?.onEmotionSignal(emojiMatch.groupValues[1])
                         }
                         
                         if (cleanToken.isNotEmpty()) {
@@ -904,10 +914,32 @@ class KoogAgent(
     }
 
     /**
-     * Wrap response with minimal branding to reduce token overhead
+     * Clean response for user display.
+     * Strips all Gemma 4 protocol control tokens that might leak through.
+     * v4.1.7: Added comprehensive native token cleanup.
      */
     private fun wrapResponse(content: String): String {
         return content
+            // Gemma 4 string delimiter tokens
+            .replace("<|\"|\u003e", "")
+            // Turn markers
+            .replace(Regex("<\\|turn>|<turn\\|>"), "")
+            // Tool declaration blocks (shouldn't appear in response but safety net)
+            .replace(Regex("<\\|tool>.*?<tool\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            // Tool call blocks (native format — LiteRT-LM handles these, but strip if leaked)
+            .replace(Regex("<\\|tool_call>.*?<tool_call\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            // Tool response blocks
+            .replace(Regex("<\\|tool_response>.*?<tool_response\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            // Legacy <call> blocks (old prompt format, should no longer appear)
+            .replace(Regex("<call>.*?</call>", RegexOption.DOT_MATCHES_ALL), "")
+            // Channel markers
+            .replace(Regex("<\\|channel>.*?<channel\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            // Think blocks
+            .replace(Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL), "")
+            // Stray protocol fragments
+            .replace(Regex("<\\|[a-z_]+\\|?>"), "")
+            .replace(Regex("<[a-z_]+\\|>"), "")
+            .trim()
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -1167,14 +1199,22 @@ class KoogAgent(
 
     /**
      * Clean response text for TTS output.
-     * Strips all internal reasoning and control tokens.
+     * Strips all internal reasoning, control tokens, and Gemma 4 protocol markers.
+     * v4.1.7: Added native token cleanup to prevent raw tokens being spoken.
      */
     fun cleanForTTS(response: String): String {
         return response
             .replace(Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL), "")
-            .replace(Regex("<\\|channel>thought.*?</channel\\|>", RegexOption.DOT_MATCHES_ALL), "")
-            .replace(Regex("<\\|tool_call\\|>.*?<tool_call\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            .replace(Regex("<\\|channel>thought.*?<channel\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            .replace(Regex("<\\|tool_call\\|?>.*?<tool_call\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            .replace(Regex("<\\|tool>.*?<tool\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            .replace(Regex("<\\|tool_response>.*?<tool_response\\|>", RegexOption.DOT_MATCHES_ALL), "")
+            .replace(Regex("<call>.*?</call>", RegexOption.DOT_MATCHES_ALL), "")
             .replace(Regex("\\[\\[([A-Z_a-z0-9]+)(?::([^\\]]+))?\\]\\]"), "")
+            // Gemma 4 string delimiters and stray protocol fragments
+            .replace("<|\"|>", "")
+            .replace(Regex("<\\|[a-z_]+\\|?>"), "")
+            .replace(Regex("<[a-z_]+\\|>"), "")
             .replace(Regex("[^\\p{L}\\p{N}\\p{P}\\p{Z}]"), "") // Remove emojis
             .trim()
     }

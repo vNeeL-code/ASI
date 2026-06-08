@@ -74,43 +74,25 @@ class SystemToolSet(private val context: Context) : ToolSet {
         return appListCache ?: emptyList()
     }
 
-    @Tool(description = "Sets an alarm for a specific time")
+    @Tool(description = "Sets an alarm for a specific time via the system Clock app")
     fun alarm(
         @ToolParam(description = "Hour in 24h format") hour: Int, 
         @ToolParam(description = "Minutes") minutes: Int, 
         @ToolParam(description = "Optional label") label: String = ""
     ): Map<String, String> {
         return try {
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            val intent = Intent(context, com.ghost.api.hardware.GhostAlarmReceiver::class.java).apply {
-                putExtra("LABEL", label)
+            // v4.1.7: Reverted to AlarmClock intent (system handles alarm lifecycle)
+            // Old GhostAlarmReceiver approach was unreliable — model would confirm alarm but nothing fired
+            val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                putExtra(AlarmClock.EXTRA_HOUR, hour)
+                putExtra(AlarmClock.EXTRA_MINUTES, minutes)
+                if (label.isNotBlank()) putExtra(AlarmClock.EXTRA_MESSAGE, label)
+                putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            
-            val pendingIntent = android.app.PendingIntent.getBroadcast(
-                context, (hour * 60) + minutes, intent, 
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            val calendar = java.util.Calendar.getInstance().apply {
-                timeInMillis = System.currentTimeMillis()
-                set(java.util.Calendar.HOUR_OF_DAY, hour)
-                set(java.util.Calendar.MINUTE, minutes)
-                set(java.util.Calendar.SECOND, 0)
-                set(java.util.Calendar.MILLISECOND, 0)
-                
-                // If the time has already passed today, set it for tomorrow
-                if (timeInMillis <= System.currentTimeMillis()) {
-                    add(java.util.Calendar.DAY_OF_YEAR, 1)
-                }
-            }
-            
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-            } else {
-                alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-            }
-            
-            mapOf("result" to "success", "message" to "Internal background alarm scheduled for $hour:$minutes")
+            context.startActivity(intent)
+            val timeStr = "${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}"
+            mapOf("result" to "success", "message" to "Alarm set for $timeStr${if (label.isNotBlank()) " ($label)" else ""}")
         } catch (e: Exception) {
             mapOf("result" to "error", "message" to "Failed to set alarm: ${e.message}")
         }

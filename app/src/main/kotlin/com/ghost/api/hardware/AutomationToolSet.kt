@@ -12,44 +12,15 @@ import timber.log.Timber
 
 /**
  * Handles autonomous scheduling operations for Gemma.
+ * 
+ * v4.1.7: Removed schedule_diary_cron() — redundant with setupDiaryCron() in GemmaService
+ * which already schedules a 12h repeating alarm on every service start.
  */
 class AutomationToolSet(private val context: Context) : ToolSet {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    @Tool(description = "Schedules a recurring 12-hour cron job for a diary entry")
-    fun schedule_diary_cron(): Map<String, String> {
-        return try {
-            val intent = Intent("com.ghost.api.ACTION_CRON_PROMPT").apply {
-                putExtra("prompt", "Write a first-person diary entry summarizing the past 12 hours of system states, interactions, and events.")
-                setPackage(context.packageName)
-            }
-            
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                1200, // Unique ID for diary cron
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val intervalMillis = 12 * 60 * 60 * 1000L
-            val triggerAtMillis = System.currentTimeMillis() + intervalMillis
-            
-            alarmManager.setRepeating(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                intervalMillis,
-                pendingIntent
-            )
-            
-            Timber.i("12h diary cron job scheduled.")
-            mapOf("result" to "success", "message" to "12-hour diary cron job scheduled successfully")
-        } catch (e: Exception) {
-            mapOf("result" to "error", "message" to (e.message ?: "Failed to schedule diary cron"))
-        }
-    }
-
-    @Tool(description = "Schedules a background task in the future. Essential for multi-step autonomy or executing plans (the 8ptagenda). Provide the exact system prompt you want to receive when it wakes up.")
+    @Tool(description = "Schedules a background task in the future. Essential for multi-step autonomy or executing plans. Provide the exact system prompt you want to receive when it wakes up.")
     fun schedule_task(
         @ToolParam(description = "Delay in minutes before the prompt is triggered") delayMinutes: Int,
         @ToolParam(description = "The exact prompt text to feed back into your own context. Start with [SYSTEM: Task Wakeup]") prompt: String

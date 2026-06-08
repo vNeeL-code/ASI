@@ -70,8 +70,8 @@ class MCPServer(
         "recall"          to ToolDefinition("recall", "Search stored memories", mapOf("query" to ParameterSpec("string", "Search query"))),
         // Shell
         "bash"            to ToolDefinition("bash", "Run a shell command (Termux pipe)", mapOf("command" to ParameterSpec("string", "Shell command"))),
-        // Network
-        "web_search"      to ToolDefinition("web_search", "Web search", mapOf("query" to ParameterSpec("string", "Search query"))),
+        "execute_background_search" to ToolDefinition("execute_background_search", "DEFAULT SEARCH TOOL. Use naturally to silently scrape the web for info or unknown topics.", mapOf("query" to ParameterSpec("string", "Search query"))),
+        "open_system_browser_bar" to ToolDefinition("open_system_browser_bar", "Open URL or search in system browser", mapOf("queryOrUrl" to ParameterSpec("string", "Search query or URL"))),
         // Skills
         "loadSkill"       to ToolDefinition("loadSkill", "Load skill instructions by name", mapOf("name" to ParameterSpec("string", "Skill name")))
     )
@@ -158,11 +158,15 @@ class MCPServer(
                     val res = termuxTools.bash(command)
                     ToolResult(res["result"] == "success", res["output"] ?: res["message"] ?: "")
                 }
-                // Network
-                "web_search" -> {
+                "execute_background_search" -> {
                     val query = params["query"]?.toString() ?: ""
-                    val res = networkTools.web_search(query, 3)
+                    val res = networkTools.execute_background_search(query, 3)
                     ToolResult(res["result"] == "success", res["content"] ?: "")
+                }
+                "open_system_browser_bar" -> {
+                    val queryOrUrl = params["queryOrUrl"]?.toString() ?: ""
+                    val res = networkTools.open_system_browser_bar(queryOrUrl)
+                    ToolResult(res["result"] == "success", res["message"] ?: "")
                 }
                 // Skills
                 "loadSkill" -> {

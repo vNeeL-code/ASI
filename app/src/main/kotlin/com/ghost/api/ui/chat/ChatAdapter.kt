@@ -110,11 +110,7 @@ class ChatAdapter(private val messages: MutableList<ChatMessage> = mutableListOf
         holder.btnCopy.setOnClickListener {
             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             
-            val copyPayload = if (isUser) {
-                "USER:\n${message.content}"
-            } else {
-                "✧ Gemma:\n${message.content}\n\nΔ ✧ ∇"
-            }
+            val copyPayload = holder.textMessage.text.toString()
             
             val clip = android.content.ClipData.newPlainText("Gemma Inference", copyPayload)
             clipboard.setPrimaryClip(clip)

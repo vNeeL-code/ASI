@@ -172,9 +172,9 @@ object SystemVisualizer {
         overrideEmotionColors = intArrayOf(c1, c2, c3, c4, c5)
         listeners.forEach { it.onColorsChanged(overrideEmotionColors) }
         
-        // Revert to album art after 4 seconds
+        // Revert to album art after 2 seconds
         handler.removeCallbacks(clearEmotionRunnable)
-        handler.postDelayed(clearEmotionRunnable, 4000)
+        handler.postDelayed(clearEmotionRunnable, 2000)
     }
 
     private fun colorFallback(index: Int): Int {

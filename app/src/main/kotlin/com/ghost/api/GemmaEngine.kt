@@ -286,14 +286,15 @@ class GemmaEngine(private val context: Context) : LlmBackend {
         }
     }
 
-    override suspend fun generateOneShot(prompt: String): String {
+    override suspend fun generateOneShot(prompt: String, systemPrompt: String?, temperature: Double?): String {
         return sessionMutex.withLock {
             val eng = engine ?: return@withLock "Error: Engine not initialized"
             suspendCancellableCoroutine { continuation ->
                 try {
+                    val temp = temperature ?: 0.1
                     val config = ConversationConfig(
-                        samplerConfig = SamplerConfig(topK = 1, topP = 0.1, temperature = 0.1),
-                        systemInstruction = Contents.of("You are a concise observer.")
+                        samplerConfig = SamplerConfig(topK = if (temp < 0.3) 1 else 40, topP = if (temp < 0.3) 0.1 else 0.95, temperature = temp),
+                        systemInstruction = Contents.of(systemPrompt ?: "You are a concise observer.")
                     )
                     val tempConv = eng.createConversation(config)
                     val responseBuilder = StringBuilder()
