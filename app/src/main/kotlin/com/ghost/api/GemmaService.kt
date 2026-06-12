@@ -302,7 +302,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     private lateinit var audioRecorder: AudioRecorder // Hearing
 
 
-    // Current mood state removed (pollution)
     private var lastCooldownMs = 0L  // Rate-limit [[COOLDOWN]] to once per 30 min
 
 
@@ -334,8 +333,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         }
 
 
-        // Removed Secondary Telemetry (Backup) (pollution)
-
         try {
             val overlayPerm = android.provider.Settings.canDrawOverlays(this)
             reportStatus("Service Created (Overlay Perm: $overlayPerm), Initializing...")
@@ -343,8 +340,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             reportStatus("Init: HardwarePropertiesManager...")
             hardwarePropertiesManager = HardwarePropertiesManager(this)
 
-
-            // Removed thermal critical forwarding (pollution)
 
             reportStatus("Init: TTS...")
             ttsManager = com.ghost.api.services.TTSManager(this)
@@ -559,9 +554,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         }
     }
 
-    // Metabolic/Thermal Cycle Removed as requested.
-
-
     // Diary cycle: setupDiaryCron() → DiaryAlarmReceiver → startDiaryCycle() → generateOneShot → writeDiaryEntry + Calendar
 
     private var initAttempts = 0
@@ -628,7 +620,34 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             if (modelFile == null) {
                 val searchedPaths = searchDirs.mapNotNull { it?.absolutePath }
                 Timber.e("No model found! Searched: $searchedPaths")
-                updateNotification("ERROR: No model found. Place .litertlm in app folder or Downloads")
+                updateNotification("Downloading E2B model fallback...")
+                
+                val downloader = ModelDownloader(applicationContext, scope)
+                downloader.startDownload("litert-community/gemma-4-E2B-it-litert-lm", "gemma-4-E2B-it.litertlm")
+                
+                scope.launch {
+                    try {
+                        downloader.downloadStatus.collect { state ->
+                            when (state) {
+                                is ModelDownloader.DownloadState.Downloading -> {
+                                    updateNotification("Downloading E2B: ${state.progressPercent}%")
+                                }
+                                is ModelDownloader.DownloadState.Success -> {
+                                    updateNotification("Download complete! Initializing...")
+                                    initialize()
+                                    throw kotlinx.coroutines.CancellationException("Done")
+                                }
+                                is ModelDownloader.DownloadState.Error -> {
+                                    updateNotification("Download failed: ${state.message}")
+                                    throw kotlinx.coroutines.CancellationException("Error")
+                                }
+                                else -> {}
+                            }
+                        }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        // Expected to exit flow collection
+                    }
+                }
                 return
             }
 
@@ -849,7 +868,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
         if (!isDream) markActivity()
 
-        return kotlinx.coroutines.withTimeoutOrNull(120000) {
+        return kotlinx.coroutines.withTimeoutOrNull(240000) {
             val response = koogAgent.processUserMessage(
                 message = userPrompt,
                 sessionId = sessionId ?: java.util.UUID.randomUUID().toString(),
@@ -1208,10 +1227,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
 
 
-    fun getCurrentMoodState(): String = "IDLE"
-
-    fun setMoodState(state: String) { /* Mood tracking removed */ }
-
     // Tool execution lives in KoogAgent.act() ÔåÆ MCPServer.executeTool()
 
     // === SAFETY UI ===
@@ -1476,8 +1491,11 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         Timber.i("🟢 Autonomous logging routine starting at ${calendar.time}")
     }
 
-    fun startDiaryCycle() {
+    fun startDiaryCycle(pendingResult: android.content.BroadcastReceiver.PendingResult? = null) {
         serviceScope.launch {
+            val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+            val wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "GHOST::DiaryWakeLock")
+            wakeLock.acquire(10 * 60 * 1000L /*10 minutes max*/)
             try {
                 val engine = engineRef.get()
                 if (engine == null) {
@@ -1519,6 +1537,9 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 }
             } catch (e: Exception) {
                 Timber.e(e, "📔 Diary cycle failed")
+            } finally {
+                if (wakeLock.isHeld) wakeLock.release()
+                pendingResult?.finish()
             }
         }
     }
