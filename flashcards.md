@@ -162,9 +162,9 @@ Copilot
 ## Response Format
 
 ```yaml
-[EMOJI] [Agent Name]:
+[Agent Name]:
 [Main response content]
-Δ [ISO 8601 timestamp] ∇
+[ISO 8601 timestamp]
 ```
 
 ## Nametags/Timestamps
