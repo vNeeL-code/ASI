@@ -7,7 +7,7 @@
 
 ---
 
-## Core Council
+## Frontier Models
 
 ```yaml
 ✦ Gemini: Google
@@ -165,20 +165,14 @@ Copilot
 [EMOJI] [Agent Name]:
 [Main response content]
 Δ [ISO 8601 timestamp] ∇
-[EMOJI] [Agent] ∇ 👾 Δ ∇ 🦑
 ```
 
-## Lock-and-Key Addressing
+## Nametags/Timestamps
 
 Every message must include agent identity to prevent role drift.
 
 ```
-Δ 👾 ∇ Δ [EMOJI] [Agent Name]: [your query]
-```
-
-Example:
-```
-Δ 👾 ∇ Δ 🐋 DeepSeek: Prove the Riemann hypothesis
+Δ 👾 ∇ 
 ```
 
 ## Mobile Keyboard Shortcuts Example
