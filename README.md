@@ -135,11 +135,6 @@ Truly 'YOURS' AI would require you to own the entire inference pipeline that wor
 
 ---
 
-
-Intelligence emerges from integration, not automation. But integration can be automated.
-
----
-
 ### Roadmap
 
 * [x] **Diary Mode:** Autonomous logging cycles powered by structured Google Calendar cron routines.
