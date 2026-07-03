@@ -107,7 +107,7 @@ echo "ghost \"Hello Gemma\""
    - `read and write Notifications` (context and writing notifications)
    - `all files access` (to detect and load the model file)
    - `Accessibility Services` (model ability to see app context and use interaction tools)
-3. **Model Selection:** The application automatically initialises with the performance-optimized `e2b` download if no model is detected. If your device carries **12GB+ RAM** (e.g., modern flagships), manually download link `e2b` model [here](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/main) for more advanced reasoning capabilities and app will prioritise loading e4b if it is present.
+3. **Model Selection:** The application automatically initialises with the performance-optimized `e2b` download if no model is detected. Manual download link for `e2b` model [here](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/main) for more advanced reasoning capabilities enable acessibility permissions.
 4. **Deploy:** Shake your device to summon the overlay and customise your ephemeral app drawer. Edge lighting and live reactive wallpaper are optional.
 
 ---
