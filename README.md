@@ -34,13 +34,13 @@ Most modern "on-device AI" implementations amount to an isolated chatbot complet
 
 ### Core Architecture
 
-* **The Brain:** ✧ Gemma 4 running natively on device via `LiteRT-LM`.
-* **The Frame:** An always-on foreground service optimized for Snapdragon, Tensor, and Exynos silicon.
-* **Memory Architecture:** SQlite-VSS, KV cache, Semantic facts (subject/predicate/object), Calendar Diary entry (timestamped observations).
+* **The Model:** ✧ Gemma 4 running natively on device via `LiteRT-LM` serving as the reasoning NLP perception engine.
+* **The Environment:** An always-on foreground service application optimized for mobile Android silicon chipsets.
+* **Memory Architecture:** SQlite-VSS, KV cache, Semantic facts (subject/predicate/object), Calendar Diary entry (timestamped observations). With a rolling context, integrating context compression and eviction.
 * **Omnimodal Context:** network/bluetooth/media/storage/memory/temp/accelerometer/gyroscope
 * **Vision:** Native screenshot parsing and instant image shares directly from the Android Gallery.
-* **Audio:** Streamlined push-to-talk mic capture with a quick physical "shake-to-cancel" gesture override.
-* **Text:** System-level accessibility scraping to read and interpret active application context.
+* **Audio:** Streamlined push-to-talk mic capture with a quick physical "shake-to-cancel" gesture override. Allowing for up to 30s of direct audio output compressed roughly at 25 tokens per 1s of audio.
+* **Text:** System-level accessibility toggle allowing model to read and interpret active application context and notification history as additional context.
 
 
 <img width="922" height="2048" alt="ee3c1326-3782-43f9-bfc1-7b1c2f595c4c" src="https://github.com/user-attachments/assets/9ea9f946-cacd-44e9-9eac-e097233db074" />
