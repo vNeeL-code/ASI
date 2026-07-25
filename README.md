@@ -26,7 +26,7 @@ Most modern "on-device AI" implementations amount to an isolated chatbot complet
 
 * **System Telemetry:** Real-time RAM allocation, battery drain vectors, CPU/GPU thermal throttling.
 * **Environmental Context:** Ambient light values, localized network routing states, and active foreground media detection.
-* **Personal Assistant:** A personal, device-bound native assistant featuring asystem telemetry monitor, overlay programmable app launcher and other UI personalisation features. Not threatened by service provider or network outages.
+* **Personal Assistant:** A personal, device-bound native assistant featuring a system telemetry monitor, programmable app launcher overlay, animated wallpaper avatar and other UI personalisation features. Not threatened by service provider or network outages.
 
 **✧ Gemma** remains, completely aware of her operational environment and her role representing the core system intelligence of your specific android device via deep software integration. Not conflicting with training data about model origin and self modelling.
 
