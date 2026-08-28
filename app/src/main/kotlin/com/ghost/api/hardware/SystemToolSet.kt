@@ -5,11 +5,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.os.Environment
 import android.os.SystemClock
 import android.provider.AlarmClock
 import android.provider.CalendarContract
+import android.provider.MediaStore
 import android.view.KeyEvent
+import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import timber.log.Timber
+import java.io.File
 import java.util.Locale
 import java.util.TimeZone
 import com.google.ai.edge.litertlm.Tool
@@ -234,6 +239,158 @@ class SystemToolSet(private val context: Context) : ToolSet {
             return mapOf("result" to "success", "memories" to "No memories found for '$query'.")
         }
         return mapOf("result" to "success", "memories" to merged)
+    }
+
+    @Tool(description = "Searches device storage and MediaStore for files matching a keyword/extension (e.g. mp3, pdf, md, video)")
+    fun search_files(
+        @ToolParam(description = "Filename keyword, pattern, or title (e.g. 'breakbeat', 'invoice', '.md')") query: String,
+        @ToolParam(description = "Optional filter: 'audio', 'video', 'image', 'doc', 'any'") type: String = "any"
+    ): Map<String, String> {
+        val results = mutableListOf<String>()
+        val lowerQuery = query.lowercase(Locale.ROOT)
+
+        // 1. Search MediaStore for fast indexed media
+        try {
+            val contentUri = when (type.lowercase(Locale.ROOT)) {
+                "audio", "music" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                "video", "movie" -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                "image", "photo" -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                else -> MediaStore.Files.getContentUri("external")
+            }
+
+            val projection = arrayOf(
+                MediaStore.MediaColumns.DATA,
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.MediaColumns.SIZE
+            )
+            val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
+            val selectionArgs = arrayOf("%$query%")
+
+            context.contentResolver.query(
+                contentUri,
+                projection,
+                selection,
+                selectionArgs,
+                "${MediaStore.MediaColumns.DATE_MODIFIED} DESC"
+            )?.use { cursor ->
+                val dataCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
+                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+                val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+
+                while (cursor.moveToNext() && results.size < 15) {
+                    val path = cursor.getString(dataCol) ?: continue
+                    val name = cursor.getString(nameCol) ?: File(path).name
+                    val sizeMb = String.format(Locale.US, "%.1f MB", (cursor.getLong(sizeCol).toDouble() / (1024 * 1024)))
+                    results.add("- $name ($sizeMb)\n  Path: $path")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "MediaStore search failed")
+        }
+
+        // 2. Direct File System search across standard external dirs for docs/markdown/text
+        if (results.size < 10) {
+            val searchRoots = listOf(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+                Environment.getExternalStorageDirectory()
+            ).filterNotNull().filter { it.exists() && it.canRead() }
+
+            for (dir in searchRoots) {
+                if (results.size >= 15) break
+                try {
+                    dir.walkTopDown()
+                        .maxDepth(3)
+                        .filter { it.isFile && it.name.lowercase(Locale.ROOT).contains(lowerQuery) }
+                        .take(15 - results.size)
+                        .forEach { f ->
+                            val sizeMb = String.format(Locale.US, "%.1f MB", (f.length().toDouble() / (1024 * 1024)))
+                            val entry = "- ${f.name} ($sizeMb)\n  Path: ${f.absolutePath}"
+                            if (!results.contains(entry)) {
+                                results.add(entry)
+                            }
+                        }
+                } catch (e: Exception) {
+                    // Ignore inaccessible subdirectories
+                }
+            }
+        }
+
+        return if (results.isNotEmpty()) {
+            mapOf("result" to "success", "matches" to results.joinToString("\n"))
+        } else {
+            mapOf("result" to "success", "matches" to "No files found matching '$query'.")
+        }
+    }
+
+    @Tool(description = "Opens a local file with its default system handler or a specific app (e.g. VLC, Gallery, Acrobat)")
+    fun open_file(
+        @ToolParam(description = "Absolute path of the file to open (e.g. /sdcard/Download/song.mp3)") filePath: String,
+        @ToolParam(description = "Optional app name to open with (e.g. 'VLC', 'Spotify', 'Chrome')") appName: String = ""
+    ): Map<String, String> {
+        val file = File(filePath)
+        if (!file.exists()) {
+            return mapOf("result" to "error", "message" to "File not found at: $filePath")
+        }
+
+        return try {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val ext = file.extension.lowercase(Locale.ROOT)
+            val mimeType = when (ext) {
+                "md", "markdown" -> "text/markdown"
+                "json" -> "application/json"
+                "pdf" -> "application/pdf"
+                "apk" -> "application/vnd.android.package-archive"
+                "txt", "log", "py", "kt", "sh", "properties", "yaml", "yml" -> "text/plain"
+                else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+            }
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            if (appName.isNotBlank()) {
+                val apps = getInstalledApps()
+                val targetApp = apps.find { it.label.contains(appName, ignoreCase = true) }
+                if (targetApp != null) {
+                    intent.setPackage(targetApp.packageName)
+                }
+            }
+
+            context.startActivity(intent)
+            val appLabel = if (appName.isNotBlank()) " in $appName" else ""
+            mapOf("result" to "success", "message" to "Opened ${file.name}$appLabel ($mimeType)")
+        } catch (e: Exception) {
+            mapOf("result" to "error", "message" to "Failed to open file: ${e.message}")
+        }
+    }
+
+    @Tool(description = "Reads and returns the text content of a local text/markdown/code/json/log file")
+    fun read_file_text(
+        @ToolParam(description = "Absolute path of the text/markdown/json file to read") filePath: String,
+        @ToolParam(description = "Maximum lines to read (default: 100)") maxLines: Int = 100
+    ): Map<String, String> {
+        val file = File(filePath)
+        if (!file.exists()) {
+            return mapOf("result" to "error", "message" to "File not found at: $filePath")
+        }
+        if (file.length() > 2 * 1024 * 1024) {
+            return mapOf("result" to "error", "message" to "File is too large (>2MB) to read into memory.")
+        }
+
+        return try {
+            val lines = file.bufferedReader().useLines { linesSequence ->
+                linesSequence.take(maxLines).toList()
+            }
+            val content = lines.joinToString("\n")
+            mapOf("result" to "success", "content" to content, "linesRead" to lines.size.toString())
+        } catch (e: Exception) {
+            mapOf("result" to "error", "message" to "Failed to read file: ${e.message}")
+        }
     }
 
 }
