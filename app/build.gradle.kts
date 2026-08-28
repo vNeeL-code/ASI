@@ -4,6 +4,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("kotlin-parcelize")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -18,7 +19,7 @@ android {
         versionName = "4.1.8"
 
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
+            abiFilters.addAll(listOf("arm64-v8a"))
         }
     }
 
@@ -57,12 +58,17 @@ android {
 
     buildFeatures {
         viewBinding = true
+        compose = true
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{INDEX.LIST,*.SF,*.DSA,*.RSA,DEPENDENCIES,LICENSE,LICENSE.txt,license.txt,NOTICE,NOTICE.txt,notice.txt,ASL2.0,AL2.0,LGPL2.1}"
         }
+    }
+
+    lint {
+        disable += setOf("WebViewLayout")
     }
 }
 
@@ -94,6 +100,17 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+    
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    
+    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.compose.foundation:foundation")
     
     testImplementation("junit:junit:4.13.2")
 }

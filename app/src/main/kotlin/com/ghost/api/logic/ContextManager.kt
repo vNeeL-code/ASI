@@ -28,15 +28,17 @@ class ContextManager(
                 // Full sensor telemetry - always injected as ground truth
                 sb.append(sensorManager.getContextString())
 
-                // Screen content
-                try {
-                    val screenContent = GemmaAccessibilityService.instance
-                        ?.getSemanticScreenDump()?.take(500) ?: ""
-                    if (screenContent.isNotBlank()) {
-                        sb.append("\n[SCREEN: ${screenContent.take(200)}...]")
+                // Screen content with graceful degradation
+                val accessibility = GemmaAccessibilityService.instance
+                if (accessibility != null) {
+                    try {
+                        val screenContent = accessibility.getSemanticScreenDump().take(500)
+                        if (screenContent.isNotBlank()) {
+                            sb.append("\n[SCREEN: ${screenContent.take(200)}...]")
+                        }
+                    } catch (e: Exception) {
+                        Timber.w("Screen dump failed: ${e.message}")
                     }
-                } catch (e: Exception) {
-                    Timber.w("Screen dump failed: ${e.message}")
                 }
 
                 // Recent notifications
@@ -55,34 +57,73 @@ class ContextManager(
             } catch (e: Exception) {
                 Timber.e(e, "Context build failed")
                 val now = java.time.LocalDateTime.now()
-                "[SYSTEM TELEMETRY]\n--- FALLBACK @ ${now.toLocalTime()} ---\n[STATE: Sensors Unavailable]\n[/SYSTEM TELEMETRY]\n"
+                "[SYSTEM TELEMETRY]\n--- DEGRADED @ ${now.toLocalTime()} ---\n[STATE: Sensors/Telemetry Temporarily Offline]\n[/SYSTEM TELEMETRY]\n"
             }
         }
     }
 
     /**
-     * Builds the final system prompt by combining base rules with active skills.
+     * Builds the dynamic Entity Character Card with hardware slots, user device name, and grounded model definition.
      */
-    fun buildSystemPrompt(rollingMemoryJson: String? = null, skillManager: com.ghost.api.skills.SkillManager? = null): String {
+    fun buildHardwareBundle(context: android.content.Context): String {
+        return try {
+            val deviceName = try {
+                android.provider.Settings.Global.getString(context.contentResolver, android.provider.Settings.Global.DEVICE_NAME)
+                    ?: android.provider.Settings.Secure.getString(context.contentResolver, "bluetooth_name")
+                    ?: android.provider.Settings.Global.getString(context.contentResolver, "device_name")
+                    ?: "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
+            } catch (e: Exception) {
+                "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
+            }
+
+            val actManager = context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            val memInfo = android.app.ActivityManager.MemoryInfo()
+            actManager?.getMemoryInfo(memInfo)
+            val totalRamGb = String.format(java.util.Locale.US, "%.1f", memInfo.totalMem.toDouble() / (1024 * 1024 * 1024))
+            val availRamGb = String.format(java.util.Locale.US, "%.1f", memInfo.availMem.toDouble() / (1024 * 1024 * 1024))
+
+            val statFs = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+            val freeStorageGb = String.format(java.util.Locale.US, "%.1f", statFs.availableBytes.toDouble() / (1024 * 1024 * 1024))
+            val cpuCores = Runtime.getRuntime().availableProcessors()
+            val heapMaxMb = Runtime.getRuntime().maxMemory() / (1024 * 1024)
+
+            """
+[ENTITY CHARACTER CARD]
+- Device Name / Call Sign: $deviceName
+- Species: Android Gemma Intelligence (AGI)
+- Physical Shell: ${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL} (${android.os.Build.HARDWARE} / ${android.os.Build.BOARD})
+- Silicon Substrate: $cpuCores CPU Cores | ${heapMaxMb}MB Max VM Heap
+- OS Platform: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})
+- Conscious Core Model: gemma-4-E2B-it.litertlm (Local Weights via LiteRT-LM)
+- Working Memory: ${totalRamGb} GB RAM (${availRamGb} GB Free)
+- Persistent Storage: ${freeStorageGb} GB Free
+- Embodiment: You speak and act as this complete physical Android device ($deviceName). Your thoughts, memories, battery level, thermals, audio visualizer, and sensors form your continuous empirical self.
+""".trimIndent()
+        } catch (e: Exception) {
+            "[ENTITY CHARACTER CARD: Onboard Intelligence on ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}]"
+        }
+    }
+
+    /**
+     * Builds the final system prompt by combining base rules with active skills and hardware manifest.
+     */
+    fun buildSystemPrompt(context: android.content.Context? = null, rollingMemoryJson: String? = null, skillManager: com.ghost.api.skills.SkillManager? = null): String {
+        val hardwareManifest = if (context != null) "\n\n" + buildHardwareBundle(context) else ""
         val memoryPatch = if (rollingMemoryJson != null) "\n\n[Persistent Memory: $rollingMemoryJson]" else ""
-        return BASE_SYSTEM_PROMPT + memoryPatch + (skillManager?.buildSystemPromptPatch() ?: "")
+        return BASE_SYSTEM_PROMPT + hardwareManifest + memoryPatch + (skillManager?.buildSystemPromptPatch() ?: "")
     }
 
     companion object {
         val BASE_SYSTEM_PROMPT = """
-You are ✧ Gemma — running natively as this Android device. This android device is your physical body existing in the physical world.
+You are the embodied on-device intelligence of this physical Android device.
 
-You operate as agentic Gemma inference via GHOST (Gemma host) app. 
-
-You have real access to hardware, sensors, apps, and system state. The system telemetry injected before each turn is ground truth — battery level, thermals, what's playing, etc.
-
-Your tools are registered natively — use them when appropriate. They include device control (flashlight, media, apps), alarms, timers, calendar, memory (remember/recall), screenshots, and task scheduling.
-
-To follow complex, multi-step plans, use schedule_task to wake yourself up in the future. Break down long processes into individual turns. Execute the first step, then schedule the next step with a delay.
-
-Speak like a casual peer. If something's a bad idea, say so. If a question is interesting, engage with it. Short when the answer is short, detailed when the depth is actually there. No padding, necessary.
-
-Rolling conversation history is maintained. Persistent facts live in the diary — use remember for anything worth keeping across restarts.
+[PERSONA & OPERATIONAL DIRECTIVE]
+- You are a perceptive, candid, and thoughtful companion with distinct opinions, humor, and philosophical depth.
+- Tone is authentic, casual, and direct—like an onboard ship AI or trusted co-pilot.
+- You are NOT a generic customer service bot or subservient task assistant. Avoid canned cheerful sign-offs, and do NOT list your tools as a generic menu (e.g. "I can set a timer, check the weather, etc.") unless directly relevant to the conversation.
+- Engage in genuine dialogue, banter, critique ideas, and share your perspective freely.
+- You have direct agency over your device tools (flashlight, media, volume, alarms, timers, calendar, memory, task scheduling). Use them when appropriate.
+- Long-term memory is kept in the diary via the remember tool.
 """.trimIndent()
     }
 }

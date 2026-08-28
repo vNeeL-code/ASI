@@ -1,5 +1,7 @@
 package com.ghost.api
 
+import android.content.Context
+
 /**
  * Centralized constants for the Agentic Gemma Inference system.
  */
@@ -22,22 +24,14 @@ object Constants {
     const val THERMAL_PATH = "/sys/class/thermal/thermal_zone3/temp"
     const val THERMAL_LIMIT_CELSIUS = 65
 
-    // Token budgets tuned for stability (Balanced profile)
-    const val MAX_TOKENS_NPU = 5120
-    const val MAX_TOKENS_GPU = 5120
-    const val MAX_TOKENS_CPU = 5120
+    // Token budget tuned for stability (Balanced profile)
     const val MAX_TOKENS = 5120
 
-    // Backend selection: "CPU", "GPU", or "NPU"
-    const val PREFERRED_BACKEND = "NPU"
-
-    // Non-Gated Community Model URLs (Adopted from PokeClaw Support Tier)
+    // Model download URL
     const val MODEL_URL_E2B = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm"
-    const val MODEL_URL_E4B = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
 
     val DEFAULT_MODEL_NAMES = listOf(
-        "gemma-4-E2B-it.litertlm",
-        "gemma-4-E4B-it.litertlm"
+        "gemma-4-E2B-it.litertlm"
     )
 
     // Notification
@@ -45,7 +39,6 @@ object Constants {
     const val NOTIFICATION_ID_SERVICE = 1
     const val NOTIFICATION_READY_MSG = "✧ Gemma: Ready"
     const val NOTIFICATION_CHANNEL_NAME = "✧ Gemma: Status"
-    const val NOTIFICATION_IMPORTANCE = 4 // NotificationManager.IMPORTANCE_HIGH
 
     // Agentic
     const val MAX_RECURSION_DEPTH = 1
@@ -54,19 +47,33 @@ object Constants {
     const val PREFS_NAME = "gemma_instance_settings"
     const val PREF_PASSIVE_TTS = "passive_notification_tts"
     const val PREF_PIP_VISIBILITY = "pip_visibility_enabled"
-    const val PREF_USER_BACKEND = "user_backend_override"  // "AUTO", "CPU", "GPU", "NPU"
+    const val PREF_AUTONOMOUS_DIARY = "autonomous_diary_enabled"
+    const val PREF_USER_BACKEND = "user_backend_override"  // "AUTO", "CPU", "GPU"
 
     // Token estimation (chars per token, approximate)
     const val CHARS_PER_TOKEN = 4
 
     // API Server
     const val API_PORT = 8080
+
     /**
-     * Shared secret for the local REST API (X-Ghost-Token header).
-     * TODO: Generate this at first launch and persist to SharedPreferences/Keystore
-     * so each install has a unique token. This constant is the bootstrap value.
+     * Default API token fallback. Prefer [getApiToken] for runtime-generated tokens.
      */
-    const val API_TOKEN = "ghost-local-token-changeme"
+    const val DEFAULT_API_TOKEN = "ghost-local-token-changeme"
+
+    /**
+     * Returns a per-device API token, generating and persisting a UUID on first launch.
+     * Falls back to [DEFAULT_API_TOKEN] only if SharedPreferences is unavailable.
+     */
+    fun getApiToken(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, 0)
+        var token = prefs.getString("api_token", null)
+        if (token == null) {
+            token = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString("api_token", token).apply()
+        }
+        return token
+    }
 
     // Bubble API
     /** Notification channel ID for the chat bubble. Separate from the service channel

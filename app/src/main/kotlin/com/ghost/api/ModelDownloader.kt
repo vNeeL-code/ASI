@@ -143,7 +143,8 @@ class ModelDownloader(
                             DownloadManager.STATUS_FAILED -> {
                                 isDownloading = false
                                 activeDownloadId = -1L
-                                val reason = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
+                                val reasonCol = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
+                                val reason = if (reasonCol != -1) cursor.getInt(reasonCol) else -1
                                 _downloadStatus.value = DownloadState.Error("Download failed with code: $reason")
                             }
                             DownloadManager.STATUS_PAUSED -> {

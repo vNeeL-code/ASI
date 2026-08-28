@@ -61,7 +61,7 @@ class MCPServer(
         "click"           to ToolDefinition("click", "Click a UI element by visible text", mapOf("target" to ParameterSpec("string", "Text of element to click"))),
         "scroll"          to ToolDefinition("scroll", "Scroll the screen", mapOf("direction" to ParameterSpec("string", "UP, DOWN, LEFT, or RIGHT"))),
         "navigate"        to ToolDefinition("navigate", "Android system navigation", mapOf("action" to ParameterSpec("string", "BACK, HOME, RECENTS, or NOTIFICATIONS"))),
-        "take_screenshot" to ToolDefinition("take_screenshot", "Capture the current screen", emptyMap()),
+
         // Memory
         "remember"        to ToolDefinition("remember", "Store a memory", mapOf(
             "title"   to ParameterSpec("string", "Memory title"),
@@ -137,9 +137,7 @@ class MCPServer(
                     val res = uiMacroTools.navigate(action)
                     ToolResult(res["result"] == "success", "Navigate: $action")
                 }
-                "take_screenshot" -> {
-                    ToolResult(false, "Screenshot not supported via MCP")
-                }
+
                 // Memory
                 "remember" -> {
                     val title   = params["title"]?.toString() ?: ""

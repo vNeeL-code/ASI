@@ -19,6 +19,33 @@ class DiaryManager(private val context: Context) {
         return context.checkSelfPermission(android.Manifest.permission.WRITE_CALENDAR) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
+    private fun getDefaultCalendarId(): Long {
+        try {
+            val cursor = context.contentResolver.query(
+                CalendarContract.Calendars.CONTENT_URI,
+                arrayOf(CalendarContract.Calendars._ID),
+                "${CalendarContract.Calendars.VISIBLE} = 1 AND ${CalendarContract.Calendars.IS_PRIMARY} = 1",
+                null,
+                null
+            ) ?: context.contentResolver.query(
+                CalendarContract.Calendars.CONTENT_URI,
+                arrayOf(CalendarContract.Calendars._ID),
+                "${CalendarContract.Calendars.VISIBLE} = 1",
+                null,
+                null
+            )
+            
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    return it.getLong(0)
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get default calendar ID")
+        }
+        return 1L
+    }
+
     /**
      * Stores a semantic distillation (memory) into the calendar.
      */
@@ -29,7 +56,7 @@ class DiaryManager(private val context: Context) {
         }
         try {
             // Find or create the GHOST calendar (optional, can use default for now)
-            val calId = 1 // Default calendar for now, can be improved to find specific one
+            val calId = getDefaultCalendarId()
 
             val values = ContentValues().apply {
                 put(CalendarContract.Events.DTSTART, System.currentTimeMillis())

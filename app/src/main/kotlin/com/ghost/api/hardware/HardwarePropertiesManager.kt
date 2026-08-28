@@ -118,12 +118,8 @@ class HardwarePropertiesManager(private val context: Context) {
         val isHighEnd = ramMB >= 8000 
         
         return when (backend) {
-            "NPU" -> {
-                 // CRITICAL: Reference standard for NPU stability
-                 if (isHighEnd) 8192 else 4096
-            }
             "GPU" -> {
-                 // 8k is a safe baseline for GPU on SD8G3 while vision is also enabled
+                 // 8k is a safe baseline for GPU while vision is also enabled
                  if (isHighEnd) 8192 else 4096
             }
             else -> {
@@ -142,11 +138,5 @@ class HardwarePropertiesManager(private val context: Context) {
                model.contains("redmi") || 
                manufacturer.contains("xiaomi") ||
                model.contains("poco")
-    }
-
-    fun isNpuReadyDevice(): Boolean {
-        val soc = android.os.Build.HARDWARE.lowercase()
-        // Snapdragon 8 Gen 3 (SM8650) or Dimensity 9300
-        return soc.contains("qcom") || soc.contains("mt6989") || soc.contains("sun")
     }
 }

@@ -2,7 +2,6 @@ package com.ghost.api
 
 import android.app.Application
 import timber.log.Timber
-import java.io.File
 
 class GemmaApp : Application() {
     override fun onCreate() {

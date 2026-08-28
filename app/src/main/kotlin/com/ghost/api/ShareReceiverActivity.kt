@@ -117,7 +117,7 @@ class ShareReceiverActivity : Activity() {
         }
     }
 
-    // ... (rest of methods unchanged) -> RESTORING HANDLERS
+
 
     private fun handleText() {
         val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
@@ -131,10 +131,7 @@ class ShareReceiverActivity : Activity() {
 
         // Send directly as a query
         val serviceIntent = Intent(this, GemmaService::class.java).apply {
-            action = "com.ghost.api.ACTION_QUERY_TEXT" // Fixed action name if needed, or stick to generic
-            // Wait, previous code used Constants.ACTION_QUERY. 
-            // Constants might be missing context? 
-            action = "com.ghost.api.ACTION_QUERY" 
+            action = "com.ghost.api.ACTION_QUERY"
             putExtra("query", "Shared text:\n$sharedText\n\nWhat would you like me to do with this?")
         }
         startService(serviceIntent)
@@ -144,59 +141,17 @@ class ShareReceiverActivity : Activity() {
     }
 
     private fun handleVideo() {
-        val uri = if (android.os.Build.VERSION.SDK_INT >= 33) {
-            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-        }
-        if (uri == null) {
-            Toast.makeText(this, "No video received", Toast.LENGTH_SHORT).show()
-            finish()
-            return
-        }
-
-        // For now, just acknowledge - video processing is complex
-        Toast.makeText(this, "Video shared - extracting frames not yet implemented", Toast.LENGTH_LONG).show()
-        Timber.i("Video URI: $uri")
+        Toast.makeText(this, "Video sharing not yet supported", Toast.LENGTH_SHORT).show()
         finish()
     }
 
     private fun handleAudio() {
-        val uri = if (android.os.Build.VERSION.SDK_INT >= 33) {
-            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-        }
-        if (uri == null) {
-            Toast.makeText(this, "No audio received", Toast.LENGTH_SHORT).show()
-            finish()
-            return
-        }
-
-        // For now, just acknowledge - need to decode audio to PCM
-        Toast.makeText(this, "Audio shared - transcription not yet implemented", Toast.LENGTH_LONG).show()
-        Timber.i("Audio URI: $uri")
+        Toast.makeText(this, "Audio sharing not yet supported", Toast.LENGTH_SHORT).show()
         finish()
     }
 
     private fun handlePdf() {
-        val uri = if (android.os.Build.VERSION.SDK_INT >= 33) {
-            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-        }
-        if (uri == null) {
-            Toast.makeText(this, "No PDF received", Toast.LENGTH_SHORT).show()
-            finish()
-            return
-        }
-
-        // For now, just acknowledge
-        Toast.makeText(this, "PDF shared - text extraction not yet implemented", Toast.LENGTH_LONG).show()
-        Timber.i("PDF URI: $uri")
+        Toast.makeText(this, "PDF sharing not yet supported", Toast.LENGTH_SHORT).show()
         finish()
     }
 
@@ -215,10 +170,6 @@ class ShareReceiverActivity : Activity() {
  * Temporary holder for shared media between Activity and Service.
  */
 object SharedMediaHolder {
-    // FIX: Memory Leak - Use WeakReference or ensure manual clearing. 
-    // Since we pass it quickly, just making it nullable and ensuring clear() is called is enough.
-    // But audit flagged static reference.
-    // pendingBitmap removed to fix Memory Leak (Audit Round 4)
     var pendingImagePath: String? = null // Path based sharing
     var pendingType: String? = null
 

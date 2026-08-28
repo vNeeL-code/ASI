@@ -66,7 +66,7 @@ class GemmaNotificationListener : NotificationListenerService() {
             val isMessaging = pkg.contains("chat") || pkg.contains("msg") || pkg.contains("whatsapp") || pkg.contains("telegram") || pkg.contains("discord")
 
             if (isMessaging) {
-                val appName = pkg.split('.').lastOrNull()?.capitalize() ?: pkg
+                val appName = pkg.split('.').lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
                 var prompt = "[SYSTEM EVENT: Incoming message on $appName from $title. Message says: \"$text\". Briefly tell the user about this message in your own words"
                 
                 if (replyCache.containsKey(pkg)) {
@@ -80,8 +80,6 @@ class GemmaNotificationListener : NotificationListenerService() {
             }
         }
 
-        // TODO: Trigger proactive Gemma response for interesting notifications
-        // Could check if Gemma is idle and inject commentary
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {

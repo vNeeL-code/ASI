@@ -57,13 +57,14 @@ class AvatarWallpaperService : WallpaperService() {
         // Animation loop
         private var rotationAngle = 0f
         private var isVisible = false
-        private val handler = Handler(Looper.getMainLooper())
-        private val drawRunnable = object : Runnable {
-            override fun run() {
+        private val frameCallback = object : android.view.Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
                 if (isVisible) {
                     interpolateColors()
                     drawFrame()
-                    handler.postDelayed(this, 16L) // ~60fps
+                    try {
+                        android.view.Choreographer.getInstance().postFrameCallback(this)
+                    } catch (e: Exception) {}
                 }
             }
         }
@@ -76,7 +77,7 @@ class AvatarWallpaperService : WallpaperService() {
             logoPaint.textSize = 320f
             logoPaint.textAlign = Paint.Align.CENTER
             logoPaint.typeface = Typeface.DEFAULT_BOLD
-            logoPaint.setShadowLayer(80f, 0f, 0f, defaultColors[0])
+            logoPaint.clearShadowLayer()
         }
 
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
@@ -89,18 +90,24 @@ class AvatarWallpaperService : WallpaperService() {
             if (visible) {
                 SystemVisualizer.addListener(this)
                 sensorManager?.registerListener(this, rotationSensor, SensorManager.SENSOR_DELAY_GAME)
-                handler.post(drawRunnable)
+                try {
+                    android.view.Choreographer.getInstance().postFrameCallback(frameCallback)
+                } catch (e: Exception) {}
             } else {
                 SystemVisualizer.removeListener(this)
                 sensorManager?.unregisterListener(this)
-                handler.removeCallbacks(drawRunnable)
+                try {
+                    android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
+                } catch (e: Exception) {}
             }
         }
 
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             this.isVisible = false
-            handler.removeCallbacks(drawRunnable)
+            try {
+                android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
+            } catch (e: Exception) {}
         }
 
         override fun onAudioData(waveform: ByteArray, fft: ByteArray, intensity: Float, bass: Float) {
@@ -123,6 +130,8 @@ class AvatarWallpaperService : WallpaperService() {
             val holder = surfaceHolder
             var canvas: Canvas? = null
             try {
+                // Pure software CPU canvas — completely isolates wallpaper from GPU to prevent
+                // driver TDR / VRAM collisions with Gemma's on-device OpenCL/Vulkan LLM inference.
                 canvas = holder.lockCanvas()
                 if (canvas != null) {
                     val width = canvas.width.toFloat()
@@ -155,12 +164,9 @@ class AvatarWallpaperService : WallpaperService() {
                     
                     canvas.restore()
                     
-                    // Multi-pass bloom glow — setShadowLayer is unreliable on hardware canvas.
-                    // Draw the star in album color at 4 increasing sizes with low alpha,
-                    // then white core on top. Bass makes the halo breathe.
+                    // Multi-pass bloom glow — lightweight alpha layers without expensive CPU Gaussian blur
                     val glowColor = currentColors[0]
                     val bassBoost = smoothedBass * 1.5f
-                    // Massive scale to peek out behind the widget
                     val baseStarSize = 1200f 
                     val bloomSizes   = floatArrayOf(
                         baseStarSize + 500f + bassBoost, 
@@ -194,17 +200,17 @@ class AvatarWallpaperService : WallpaperService() {
         }
 
         private fun drawOscilloscopeFlower(canvas: Canvas, baseRadius: Float) {
-            val numPoints = 120
+            val numPoints = 64
             val currentRadius = baseRadius + (smoothedBass * 2.5f)
             
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = 8f
+            paint.clearShadowLayer()
             
             for (c in currentColors.indices) {
                 val color = currentColors[c]
                 paint.color = color
-                paint.alpha = 220 - (c * 15)
-                paint.setShadowLayer(55f + (smoothedBass / 3f), 0f, 0f, color)
+                paint.alpha = max(0, 220 - (c * 15))
                 
                 val path = Path()
                 for (i in 0..numPoints) {
@@ -227,23 +233,20 @@ class AvatarWallpaperService : WallpaperService() {
                     else path.lineTo(x, y)
                 }
                 path.close()
-                paint.strokeWidth = 8f
-                paint.alpha = max(0, 220 - (c * 15))
                 canvas.drawPath(path, paint)
             }
         }
 
         private fun drawIris(canvas: Canvas, baseRadius: Float) {
-            // Start tight to center so rings explode outward on bass hits
             val startRadius = baseRadius * 0.2f + smoothedBass * 1.5f
             
             paint.style = Paint.Style.STROKE
+            paint.clearShadowLayer()
             
             for (i in 0 until 7) {
                 val color = currentColors[i % currentColors.size]
                 paint.color = color
                 paint.strokeWidth = 20f + (smoothedIntensity / 8f) - (i * 1.5f)
-                paint.setShadowLayer(70f + (smoothedBass / 1.5f), 0f, 0f, color)
                 
                 val radius = startRadius + (i * 140f) + (smoothedBass * (i * 0.9f))
                 
@@ -293,7 +296,9 @@ class AvatarWallpaperService : WallpaperService() {
             super.onDestroy()
             SystemVisualizer.removeListener(this)
             sensorManager?.unregisterListener(this)
-            handler.removeCallbacks(drawRunnable)
+            try {
+                android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
+            } catch (e: Exception) {}
         }
     }
 }

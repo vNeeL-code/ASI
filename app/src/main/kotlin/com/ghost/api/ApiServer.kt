@@ -1,7 +1,6 @@
 package com.ghost.api
 
 import com.ghost.api.database.MemoryManager
-import com.ghost.api.GemmaNotificationListener
 import com.google.gson.Gson
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -32,7 +31,7 @@ class ApiServer(
                 fun ApplicationCall.isAuthorized(): Boolean {
                     val header = request.header("X-Ghost-Token")
                         ?: request.header("Authorization")?.removePrefix("Bearer ")?.trim()
-                    return header == Constants.API_TOKEN
+                    return header == Constants.getApiToken(gemmaService)
                 }
 
                 get("/v1/models") {
@@ -124,6 +123,10 @@ class ApiServer(
                 }
                 
                 get("/api/status") {
+                    if (!call.isAuthorized()) {
+                        call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid or missing X-Ghost-Token"))
+                        return@get
+                    }
                     val status = mapOf(
                         "timestamp" to System.currentTimeMillis(),
                         "model_loaded" to gemmaService.isGemmaLoaded(),
@@ -133,6 +136,10 @@ class ApiServer(
                 }
 
                 post("/api/reset_memory") {
+                    if (!call.isAuthorized()) {
+                        call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid or missing X-Ghost-Token"))
+                        return@post
+                    }
                     gemmaService.resetMemory()
                     call.respondText(gson.toJson(mapOf("success" to true)), ContentType.Application.Json)
                 }

@@ -40,6 +40,8 @@ object JsExecutionBridge {
                     fun onResultReady(result: String) {
                         Timber.i("JsExecutionBridge: Received result")
                         deferred.complete(result)
+                        // Destroy WebView on success to prevent leak
+                        Handler(Looper.getMainLooper()).post { webView.destroy() }
                     }
                 }, "AiEdgeGallery")
 

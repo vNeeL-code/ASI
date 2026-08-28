@@ -44,7 +44,6 @@ class InputOverlay(
     private val colorRecording = Color.parseColor("#EF4444")  // Red-Pulse
 
     // Google
-    private var isThinking = false
     private val activeSlots = mutableListOf<View>()
 
     private val colorGBlue = Color.parseColor("#4285F4")

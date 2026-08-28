@@ -103,8 +103,8 @@ class SkillManager(private val context: Context) {
     fun getSkillInstructions(name: String): String? = skills[name]?.instructions
 
     fun saveNewSkill(name: String, description: String, instructions: String): Boolean {
-        // Implementation for dynamic skill saving
-        return true
+        Timber.w("saveNewSkill('$name'): Skill saving is not yet implemented")
+        return false
     }
 
     fun buildSystemPromptPatch(): String {

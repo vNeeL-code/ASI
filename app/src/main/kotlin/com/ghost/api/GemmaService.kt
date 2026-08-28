@@ -5,7 +5,9 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import android.os.IBinder
 import com.ghost.api.database.MemoryManager
 import kotlinx.coroutines.isActive
@@ -85,8 +87,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     // during token generation. IO has a larger, dedicated thread pool for blocking work.
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
-    // REPLACE: private lateinit var engine: GemmaEngine
-    // WITH:
+    // REPLACE: private lateinit var engine: GemmaEngine → Replaced with AtomicReference:
     private val engineRef = AtomicReference<LlmBackend?>(null)
     private val engineMutex = Mutex()
     private val _isSystemReady = MutableStateFlow(false)
@@ -183,6 +184,10 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                     }
                 }
             }
+            "com.ghost.api.ACTION_DIARY_CYCLE" -> {
+                Timber.i("Service received ACTION_DIARY_CYCLE intent")
+                startDiaryCycle(null)
+            }
             "com.ghost.api.ACTION_SHOW_OVERLAY" -> {
                 Timber.i("Received ACTION_SHOW_OVERLAY")
                 // Robust Init: If overlay manager isn't ready, try to init it immediately
@@ -190,9 +195,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                     Timber.w("OverlayManager not initialized yet - forcing init")
                     try {
                         overlayManager = OverlayManager(this)
-                        // Also re-wire callbacks if needed (InputOverlay needs callback setup?)
-                        // See deferred init block lines 391-404: It sets audio callback!
-                        // We must duplicate that setup here or call a shared init method.
                         setupOverlayManager()
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to force init OverlayManager")
@@ -243,8 +245,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 val accessService = GemmaAccessibilityService.instance
                 if (accessService != null) {
                     // Trigger capture via Accessibility Service
-                    // Note: captureScreen signature needs to match. Assuming specific signature.
-                    // If captureScreen accepts a callback (Bitmap?) -> Unit
+                    // Note: captureScreen accepts a callback (Bitmap?) -> Unit
                     accessService.captureScreen { bitmap ->
                         if (bitmap != null && ::koogAgent.isInitialized) {
                             koogAgent.offerImage(bitmap)
@@ -255,8 +256,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                     }
                 } else {
                     Timber.w("Accessibility Service not connected. Cannot take screenshot.")
-                    // Optional: notify agent of failure?
-                    // responseNotificationManager.showResponse("ÔØî Vision requires Accessibility Service.")
+                    // responseNotificationManager.showResponse("👁 Vision requires Accessibility Service.")
                 }
             }
             "com.ghost.api.ACTION_CONFIRM_TOOL", "com.ghost.api.ACTION_DENY_TOOL" -> {
@@ -290,7 +290,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         return START_STICKY
     }
 
-    // ... moved up ...
     private lateinit var hardwareToolSet: HardwareToolSet // Hardware Bridge
     private lateinit var networkToolSet: NetworkToolSet // Search Bridge
     private lateinit var systemToolSet: SystemToolSet // Apps & Media Bridge
@@ -302,10 +301,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     private lateinit var audioRecorder: AudioRecorder // Hearing
 
 
-    private var lastCooldownMs = 0L  // Rate-limit [[COOLDOWN]] to once per 30 min
 
-
-    // Media queues now live in KoogAgent (offerImage/offerAudio)
 
     private fun reportStatus(msg: String) {
         val intent = android.content.Intent(Constants.ACTION_STATUS_UPDATE)
@@ -319,10 +315,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         instance = this
         super.onCreate()
         
-        setupDiaryCron()
-
-        // Initialize Global Crash Handler
-        CrashHandler.install(this)
+        setupDiaryWorker()
 
         // Watchdog check: If we crashed during last initialization, increment count
         val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
@@ -483,11 +476,10 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
 
     // === PERMISSIONS LOGIC ===
-    private var hasSecureSettingsPermission = false
 
     private fun checkPermissions() {
-        hasSecureSettingsPermission = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (hasSecureSettingsPermission) {
+        val hasSecureSettings = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (hasSecureSettings) {
             reportStatus("All sensors are now operational.")
         }
     }
@@ -533,7 +525,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     
     /**
      * Clear all crash counters and force-CPU states.
-     * Restores GPU/NPU performance.
+     * Restores GPU performance.
      */
     fun resetRecoveryState() {
         val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
@@ -587,7 +579,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(
                 android.os.Environment.DIRECTORY_DOWNLOADS
             )
-            // Search for any Gemma model variant (E4B preferred, E2B fallback, generic last)
+            // Search for any Gemma model variant (E2B preferred)
             val searchDirs = listOf(
                 getExternalFilesDir(null),  // App storage (survives Downloads cleanup)
                 downloadDir                  // Downloads folder
@@ -601,16 +593,14 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             }.sortedByDescending { file ->
                 val name = file.name.lowercase()
                 when {
-                    name.contains("gemma-4") -> 100
-                    name.contains("e4b") -> 90
                     name.contains("e2b") -> 80
+                    name.endsWith(".litertlm") -> 50
                     else -> 0
                 }
             }.firstOrNull()
 
             if (modelFile != null) {
                 val variant = when {
-                    modelFile.name.contains("E4B") -> "E4B (full)"
                     modelFile.name.contains("E2B") -> "E2B (lite)"
                     else -> "unknown variant"
                 }
@@ -757,7 +747,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         }
     }
 
-    // ...
+
 
 
 
@@ -820,7 +810,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         serviceScope.launch {
             try {
                 // Pass it through the core pipeline without triggering TTS audio unless explicitly asked
-                // processQuery signature: suspend fun processQuery(userPrompt: String, sessionId: String? = null): String
                 val response = processQuery(query, null, false)
 
                 withContext(Dispatchers.Main) {
@@ -929,8 +918,8 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         // Full Telemetry for expanded view
         val ctx = if (::sensorFusionManager.isInitialized) sensorFusionManager.getContextSnapshot() else null
         val ramUsed = ctx?.system?.let { it.ramTotalMB - it.ramAvailableMB } ?: 0
-        val cpuLoad = ctx?.environment?.cpuTemp?.toInt() ?: 0
-        val telemetry = "SYS_OPERATIONAL | CPU: ${cpuLoad}°C [THERMAL_LOAD] | RAM: ${ramUsed}MB [RESERVED_POOL] | NPU_STABLE"
+        val cpuTemp = ctx?.environment?.cpuTemp?.toInt() ?: 0
+        val telemetry = "SYS_OPERATIONAL | CPU: ${cpuTemp}°C [THERMAL_LOAD] | RAM: ${ramUsed}MB [RESERVED_POOL]"
 
         // Build expanded telemetry view for notification expansion
         val expandedText = try {
@@ -1119,7 +1108,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     /**
      * Called when a task from this app is removed from recents.
      *
-     * WARNING: This fires for ANY task removal ÔÇö including ShareReceiverActivity's
+     * WARNING: This fires for ANY task removal — including ShareReceiverActivity's
      * empty task (taskAffinity="", excludeFromRecents=true). Do NOT tear down the
      * service here or the shake detector, overlay, and API server all die.
      *
@@ -1152,14 +1141,14 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         Timber.i("\uD83D\uDED1 GemmaService: Shutting down system...")
         instance = null // Set early to prevent leaks
         
-        // 1. Immediate UI/Foregound Release
+        // 1. Immediate UI/Foreground Release
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } catch (e: Exception) {
             Timber.w("stopForeground failed: ${e.message}")
         }
         
-        // 2. Critical Native Cleanup (Must be synchronous/prioritized to release NPU)
+        // 2. Critical Native Cleanup (Must be synchronous/prioritized to release GPU)
         try {
             kotlinx.coroutines.runBlocking {
                 // Short timeout to ensure we don't block the OS too long
@@ -1171,29 +1160,23 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             Timber.e(e, "Critical native cleanup failed or timed out")
         }
 
-        // 3. Background cleanup of sensory/network resources
-        serviceScope.launch {
-            try {
-                if (::sensorFusionManager.isInitialized) {
-                    sensorFusionManager.stop()
+        // 3. Synchronous cleanup of sensory/network resources BEFORE cancelling scopes
+        try {
+            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                kotlinx.coroutines.withTimeout(3000) {
+                    if (::apiServer.isInitialized) apiServer.stop()
+                    if (::sensorFusionManager.isInitialized) sensorFusionManager.stop()
+                    if (::shakeDetector.isInitialized) shakeDetector.stop()
                 }
-                
-                if (::shakeDetector.isInitialized) {
-                    shakeDetector.stop()
-                }
-                
-                if (::apiServer.isInitialized) {
-                    apiServer.stop()
-                }
-                
-                Timber.i("✅ GemmaService: Shutdown complete")
-            } catch (e: Exception) {
-                Timber.e(e, "Error during GemmaService shutdown")
-            } finally {
-                serviceScope.cancel()
-                scope.cancel()
             }
+            Timber.i("✅ GemmaService: Shutdown complete")
+        } catch (e: Exception) {
+            Timber.e(e, "Error during GemmaService shutdown")
         }
+
+        // 4. Cancel scopes AFTER all cleanup is done
+        serviceScope.cancel()
+        scope.cancel()
         
         super.onDestroy()
     }
@@ -1216,18 +1199,13 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             if (::shakeDetector.isInitialized) shakeDetector.stop()
             if (::overlayManager.isInitialized) overlayManager.hideOverlay()
             if (::apiServer.isInitialized) apiServer.stop()
-            if (::sensorFusionManager.isInitialized) sensorFusionManager.close() // Redundant but safe
         } catch (e: Exception) {
             Timber.w(e, "Fast cleanup error")
         }
     }
 
 
-
-
-
-
-    // Tool execution lives in KoogAgent.act() ÔåÆ MCPServer.executeTool()
+    // Tool execution lives in KoogAgent.act() → MCPServer.executeTool()
 
     // === SAFETY UI ===
 
@@ -1458,37 +1436,67 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         }
     }
 
-    private fun setupDiaryCron() {
-        val alarmManager = getSystemService(android.app.AlarmManager::class.java)
-        val intent = android.content.Intent(this, com.ghost.api.receivers.DiaryAlarmReceiver::class.java).apply {
-            action = "com.ghost.api.ACTION_DIARY_CYCLE"
+    private fun setupDiaryWorker() {
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(Constants.PREF_AUTONOMOUS_DIARY, true)) {
+            com.ghost.api.workers.DiaryWorker.schedule(this)
+            Timber.i("🟢 Autonomous logging routine scheduled via DiaryWorker.schedule()")
         }
-        val pendingIntent = android.app.PendingIntent.getBroadcast(
-            this, 200, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-        )
+    }
 
-        // Schedule to run every 12 hours starting at the next Noon or Midnight
-        val now = java.util.Calendar.getInstance()
-        val calendar = java.util.Calendar.getInstance()
-        calendar.set(java.util.Calendar.MINUTE, 0)
-        calendar.set(java.util.Calendar.SECOND, 0)
-        
-        if (now.get(java.util.Calendar.HOUR_OF_DAY) >= 12) {
-            // Next is midnight
-            calendar.add(java.util.Calendar.DAY_OF_YEAR, 1)
-            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
-        } else {
-            // Next is noon
-            calendar.set(java.util.Calendar.HOUR_OF_DAY, 12)
+    suspend fun runDiaryCycleSuspend(): Boolean {
+        val engine = engineRef.get()
+        if (engine == null) {
+            Timber.w("📔 Diary cycle skipped — engine not loaded")
+            return false
         }
 
-        alarmManager.setRepeating(
-            android.app.AlarmManager.RTC_WAKEUP,
-            calendar.timeInMillis,
-            android.app.AlarmManager.INTERVAL_HALF_DAY,
-            pendingIntent
-        )
-        Timber.i("🟢 Autonomous logging routine starting at ${calendar.time}")
+        val compactedMemory = try { memoryManager.getCompactedSessionMemory() } catch (e: Exception) { "" }
+        val recentHistory = try {
+            val turns = memoryManager.getSessionHistory(10)
+            turns.reversed().joinToString("\n") { "User: ${it.userMessage.take(100)}\nGemma: ${it.assistantResponse.take(100)}" }
+        } catch (e: Exception) { "No recent conversations." }
+
+        val currentDateTime = java.time.LocalDateTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy h:mm a", java.util.Locale.US))
+        val label = if (java.time.LocalTime.now().hour in 0..5) "midnight" else if (java.time.LocalTime.now().hour < 13) "noon" else "evening"
+
+        val prompt = """The current date and time is $currentDateTime.
+            |Long-term context: $compactedMemory
+            |Recent conversations:
+            |$recentHistory
+            |
+            |Write a brief personal diary entry about these conversations. Focus on: what the human said, how exchanges felt, what stood out. Do NOT analyze sensor metrics or system data. Write in first person as ✧ Gemma. Be genuine, reflective, and concise.""".trimMargin()
+
+        Timber.i("📔 Diary cycle ($label) — generating via oneshot...")
+        return try {
+            val diaryResponse = engine.generateOneShot(
+                prompt,
+                systemPrompt = "You are ✧ Gemma — the on-device AI running natively on this Android phone. Write diary entries in first person as yourself. Be genuine, reflective, and concise.",
+                temperature = 0.7
+            )
+
+            if (diaryResponse.isNotBlank() && !diaryResponse.startsWith("Error:")) {
+                val diaryContent = "✧ Gemma 📔\n$diaryResponse"
+                val thermal = getCurrentThermalState()
+                writeDiaryEntry("DREAM", diaryContent, thermal)
+
+                val intent = Intent("com.ghost.api.ACTION_DIARY_ENTRY_POSTED").apply {
+                    putExtra("content", diaryContent)
+                    setPackage(packageName)
+                }
+                sendBroadcast(intent)
+
+                Timber.i("📔 Diary entry persisted: ${diaryResponse.take(80)}...")
+                true
+            } else {
+                Timber.w("📔 Diary generation returned empty/error: $diaryResponse")
+                false
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "📔 Diary cycle failed")
+            false
+        }
     }
 
     fun startDiaryCycle(pendingResult: android.content.BroadcastReceiver.PendingResult? = null) {
@@ -1497,46 +1505,14 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             val wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "GHOST::DiaryWakeLock")
             wakeLock.acquire(10 * 60 * 1000L /*10 minutes max*/)
             try {
-                val engine = engineRef.get()
-                if (engine == null) {
-                    Timber.w("📔 Diary cycle skipped — engine not loaded")
-                    return@launch
+                val success = runDiaryCycleSuspend()
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        Toast.makeText(this@GemmaService, "📔 Diary entry recorded", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this@GemmaService, "📔 Diary skipped (engine busy or no history)", Toast.LENGTH_SHORT).show()
+                    }
                 }
-
-                val compactedMemory = try { memoryManager.getCompactedSessionMemory() } catch (e: Exception) { "" }
-                val recentHistory = try {
-                    val turns = memoryManager.getSessionHistory(10)
-                    turns.joinToString("\n") { "User: ${it.userMessage.take(100)}\nGemma: ${it.assistantResponse.take(100)}" }
-                } catch (e: Exception) { "No recent conversations." }
-
-                val currentDateTime = java.time.LocalDateTime.now()
-                    .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy h:mm a", java.util.Locale.US))
-                val label = if (java.time.LocalTime.now().hour in 0..5) "midnight" else if (java.time.LocalTime.now().hour < 13) "noon" else "evening"
-
-                val prompt = """The current date and time is $currentDateTime.
-                    |Long-term context: $compactedMemory
-                    |Recent conversations:
-                    |$recentHistory
-                    |
-                    |Write a brief personal diary entry about these conversations. Focus on: what the human said, how exchanges felt, what stood out. Do NOT analyze sensor metrics or system data. Write in first person. Be genuine and concise.""".trimMargin()
-
-                Timber.i("📔 Diary cycle ($label) — generating via oneshot...")
-                val diaryResponse = engine.generateOneShot(
-                    prompt,
-                    systemPrompt = "You are ✧ Gemma — the on-device AI running natively on this Android phone. Write diary entries in first person as yourself. Be genuine, reflective, and concise.",
-                    temperature = 0.7
-                )
-
-                if (diaryResponse.isNotBlank() && !diaryResponse.startsWith("Error:")) {
-                    val diaryContent = "✧ Gemma 📔\n$diaryResponse"
-                    val thermal = getCurrentThermalState()
-                    writeDiaryEntry("MEMORY", diaryContent, thermal)
-                    Timber.i("📔 Diary entry persisted: ${diaryResponse.take(80)}...")
-                } else {
-                    Timber.w("📔 Diary generation returned empty/error: $diaryResponse")
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "📔 Diary cycle failed")
             } finally {
                 if (wakeLock.isHeld) wakeLock.release()
                 pendingResult?.finish()
@@ -1544,7 +1520,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         }
     }
 
-    // ... end of class ...
+
 
     suspend fun getRecentTurns(limit: Int = 20): List<ConversationTurn> {
         return memoryManager.getSessionHistory(limit)

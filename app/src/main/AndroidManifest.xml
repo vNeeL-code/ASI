@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     
     <!-- SYSTEM-LEVEL PERMISSIONS -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FLASHLIGHT" />
@@ -9,9 +12,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.MANAGE_VOICE_KEYPHRASES" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -81,10 +82,7 @@
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false"/>
         
-        <!-- NPU Access: Snapdragon HTP Drivers (for future NPU support) -->
-        <uses-native-library android:name="libadsprpc.so" android:required="false"/>
-        <uses-native-library android:name="libQnnHtp.so" android:required="false"/>
-        <uses-native-library android:name="libQnnSystem.so" android:required="false"/>
+
         
         <!-- ASSISTANT SERVICE DECLARATION -->
         <service
@@ -167,16 +165,7 @@
                 android:resource="@xml/avatar_wallpaper" />
         </service>
         
-        <!-- Native Bubble Activity -->
-        <activity
-            android:name=".BubbleActivity"
-            android:theme="@style/Theme.GHOST"
-            android:allowEmbedded="true"
-            android:documentLaunchMode="intoExisting"
-            android:resizeableActivity="true"
-            android:exported="true"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density"
-            android:taskAffinity="com.ghost.api.bubble" />
+
         
         <!-- Launcher Activity (starts service and exits) -->
         <activity
@@ -207,7 +196,7 @@
         <activity
             android:name=".ShareReceiverActivity"
             android:exported="true"
-            android:label="Ask Gemma"
+            android:label="Ask GHOST"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:taskAffinity="">
@@ -261,10 +250,6 @@
         <!-- Internal Alarm Receiver -->
         <receiver android:name=".hardware.GhostAlarmReceiver" android:exported="false" />
         
-        <receiver android:name=".receivers.DiaryAlarmReceiver" android:exported="false">
-            <intent-filter>
-                <action android:name="com.ghost.api.ACTION_DIARY_CYCLE" />
-            </intent-filter>
-        </receiver>
+
     </application>
 </manifest>

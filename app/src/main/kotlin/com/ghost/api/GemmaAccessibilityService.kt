@@ -44,6 +44,9 @@ class GemmaAccessibilityService : AccessibilityService() {
     // Previously used recursive DFS which caused stack overflow on deep trees. Fixed.
     fun getSemanticScreenDump(): String {
         val root = rootInActiveWindow ?: return "[[NO ACTIVE WINDOW]]"
+        if (root.packageName?.toString() == packageName || root.packageName?.toString() == "com.ghost.api") {
+            return "" // Skip scraping our own UI to prevent reading own chat/telemetry twice
+        }
 
         val sb = StringBuilder()
         val queue = java.util.ArrayDeque<AccessibilityNodeInfo>()
@@ -129,9 +132,7 @@ class GemmaAccessibilityService : AccessibilityService() {
                 try {
                     val hardwareBuffer = result.hardwareBuffer
                     try {
-                        // DO NOT call hardwareBuffer.close() here - Bitmap.wrapHardwareBuffer manages it? 
-                        // Actually, docs say you MUST close it after wrapping IF you copy it.
-                        // We copy to software bitmap to prevent use-after-free on hardware buffer
+                        // Copy to software bitmap — hardware buffer must be released after wrap
                         val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, result.colorSpace)?.copy(Bitmap.Config.ARGB_8888, false)
                         
                         if (bitmap != null) {
@@ -284,9 +285,7 @@ class GemmaAccessibilityService : AccessibilityService() {
         private val visualCortex = java.util.concurrent.atomic.AtomicReference<Bitmap?>()
         private val semanticCortex = java.util.concurrent.atomic.AtomicReference<String>("[[NO VISUAL CONTEXT]]")
         private val audioCortex = java.util.concurrent.atomic.AtomicReference<ShortArray?>()
-        // DeviceContext is defined in logic/ContextManager, but we need to avoid circular deps.
-        // We'll store a string representation or simple object for now, or just let ContextManager handle proprioception directly.
-        // However, for "Unified Perception", we want a snapshot.
+        // Snapshot of device context for unified perception
         
         fun updateVisual(bitmap: Bitmap?) {
             visualCortex.set(bitmap)

@@ -26,8 +26,7 @@ object ToolPolicy {
             // RISKY TOOLS — external comms, destructive, or costly actions
             "send_sms" -> true
             "delete_file" -> true
-            "shell_execute", "bash" -> true
-            "buy_item" -> true
+            "bash" -> true
             "call_phone" -> true
 
             // Default to SAFE for unknown tools — agent shouldn't need permission to do what user asked
@@ -42,7 +41,7 @@ object ToolPolicy {
         return when (toolName.lowercase()) {
             "send_sms" -> "send a text message"
             "delete_file" -> "delete a file"
-            "shell_execute" -> "run a system command"
+            "bash" -> "run a system command"
             "call_phone" -> "make a phone call"
             else -> "perform a sensitive action ($toolName)"
         }

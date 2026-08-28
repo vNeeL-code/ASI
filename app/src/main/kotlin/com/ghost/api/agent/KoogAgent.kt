@@ -190,6 +190,8 @@ class KoogAgent(
     private val _turnsSinceKvFlush = java.util.concurrent.atomic.AtomicInteger(0)
     private var turnsSinceKvFlush: Int get() = _turnsSinceKvFlush.get(); set(value) { _turnsSinceKvFlush.set(value) }
 
+
+
     // Skip recap injection turn after stuck-loop flush
     
     private val checkpointFile: File
@@ -730,13 +732,14 @@ class KoogAgent(
                 _conversationHistory.add(Message(role = "assistant", content = response))
             }
 
-            // 8. Auto-flush KV cache with Synchronous Compaction (Optimized: 30 turns instead of 15)
-            if (turnCount > 0 && turnCount % 30 == 0) {
-                Timber.i("🌀 Auto-flushing KV cache and Compacting Memory at turn $turnCount")
+            // 8. Dynamic KV Cache Flush based on token limit
+            val currentTokenEstimate = (context.length + event.message.length + _conversationHistory.sumOf { it.content.length }) / com.ghost.api.Constants.CHARS_PER_TOKEN
+            // 4120 leaves ~1000 tokens for the engine to generate response
+            if (currentTokenEstimate > 4120) {
+                Timber.i("🌀 KV cache reaching capacity (~$currentTokenEstimate tokens). Auto-flushing & Compacting...")
                 try {
-                    // Show a dramatic block to the user
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(this@KoogAgent.context, "🟢 Consolidating...", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(this@KoogAgent.context, "🟢 Consolidating Memory...", android.widget.Toast.LENGTH_LONG).show()
                     }
                     
                     val memoryManager = com.ghost.api.database.MemoryManager(this@KoogAgent.context)
@@ -762,13 +765,25 @@ class KoogAgent(
                         }
                     }
 
+                    // Map the recent history to litertlm.Message for true KV injection
+                    val initialMessages = synchronized(_conversationHistory) {
+                        _conversationHistory.map {
+                            when (it.role) {
+                                "user" -> com.google.ai.edge.litertlm.Message.user(it.content)
+                                "assistant" -> com.google.ai.edge.litertlm.Message.model(it.content)
+                                else -> com.google.ai.edge.litertlm.Message.system(it.content)
+                            }
+                        }
+                    }
+
                     val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
-                    llmEngine.softReset(systemPrompt, currentTools)
+                    llmEngine.softReset(systemPrompt, currentTools, initialMessages)
                     turnsSinceKvFlush = 0
                 } catch (e: Exception) {
                     Timber.w(e, "Auto-flush failed (non-fatal)")
                 }
             }
+
 
             // 9. Checkpoint
             Timber.d("🟢 Creating Backup...")
@@ -1151,7 +1166,7 @@ class KoogAgent(
     fun getSystemPrompt(): String = buildSystemPrompt()
 
     private fun buildSystemPrompt(): String {
-        val basePrompt = contextManager.buildSystemPrompt(rollingMemoryJson, skillManager)
+        val basePrompt = contextManager.buildSystemPrompt(this@KoogAgent.context, rollingMemoryJson, skillManager)
         val memoryManager = com.ghost.api.database.MemoryManager(this@KoogAgent.context)
         val oldMemory = kotlinx.coroutines.runBlocking { memoryManager.getCompactedSessionMemory() }
         val longTermMemoryPatch = if (oldMemory.isNotBlank()) "\n\n[LONG TERM SESSION MEMORY]\n$oldMemory\n[/LONG TERM SESSION MEMORY]\n" else ""

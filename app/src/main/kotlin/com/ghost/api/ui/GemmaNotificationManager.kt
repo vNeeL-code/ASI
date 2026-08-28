@@ -121,7 +121,7 @@ class GemmaNotificationManager(private val context: Context) {
     }
 
     fun pushStartupShortcut() {
-        // Handled lazily in showResponse to save IPC overhead
+        // No-op: shortcut registration not needed
     }
 
     fun cancel() {

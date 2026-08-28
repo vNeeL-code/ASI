@@ -230,7 +230,11 @@ class SensorFusionManager(private val context: Context) : AutoCloseable {
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
-        context.registerReceiver(stateReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(stateReceiver, filter)
+        }
         
         Timber.i("🌀 SensorFusion active in Event-Driven mode (Polling disabled)")
     }

@@ -366,28 +366,11 @@ class OverlayManager(private val context: Context) {
         }
     }
 
-    private fun getPassiveLayoutParams(): WindowManager.LayoutParams {
-        val type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        
-        return WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            type,
-            flags,
-            android.graphics.PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            // FIX: Prevent overlay from moving when keyboard spawns
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
-        }
-    }
 
     private fun getInteractiveLayoutParams(): WindowManager.LayoutParams {
         val type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        // Audit 4.0: Added FLAG_NOT_FOCUSABLE by default to prevent "keyboard-without-network" regressions.
-        // This ensures the overlay exists but doesn't hijack input from underlying apps.
+        // FLAG_NOT_FOCUSABLE by default prevents the overlay from hijacking input from underlying apps.
+        // Focus is granted on-demand via requestOverlayFocus() when the user taps the input field.
         val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN

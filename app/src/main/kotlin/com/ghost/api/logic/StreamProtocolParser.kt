@@ -102,7 +102,7 @@ class StreamProtocolParser(
         }
     }
     
-    fun finalize() {
+    fun flush() {
         if (buffer.isNotEmpty()) {
             route(buffer)
             buffer = ""

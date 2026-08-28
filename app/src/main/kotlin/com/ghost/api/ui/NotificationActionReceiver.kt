@@ -59,9 +59,11 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 }
                 try {
                     context.startService(serviceIntent)
-                    // Close notification panel
-                    val closeIntent = Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
-                    context.sendBroadcast(closeIntent)
+                    // Close notification panel (restricted on Android 12+)
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+                        val closeIntent = Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+                        context.sendBroadcast(closeIntent)
+                    }
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to forward confirmation to service")
                 }

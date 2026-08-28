@@ -76,7 +76,7 @@ class SystemToolSet(private val context: Context) : ToolSet {
 
     @Tool(description = "Sets an alarm for a specific time via the system Clock app")
     fun alarm(
-        @ToolParam(description = "Hour in 24h format") hour: Int, 
+        @ToolParam(description = "Strictly 24-hour format hour (e.g. 14 for 2 PM)") hour: Int, 
         @ToolParam(description = "Minutes") minutes: Int, 
         @ToolParam(description = "Optional label") label: String = ""
     ): Map<String, String> {
@@ -98,9 +98,9 @@ class SystemToolSet(private val context: Context) : ToolSet {
         }
     }
 
-    @Tool(description = "Sets a timer")
+    @Tool(description = "Sets a timer for the specified duration")
     fun timer(
-        @ToolParam(description = "Length in seconds") seconds: Int, 
+        @ToolParam(description = "Total duration in precise seconds (e.g. 5 minutes = 300)") seconds: Int, 
         @ToolParam(description = "Optional label") label: String = ""
     ): Map<String, String> {
         return try {
@@ -124,16 +124,36 @@ class SystemToolSet(private val context: Context) : ToolSet {
         @ToolParam(description = "Duration in minutes") minutes: Int = 30
     ): Map<String, String> {
         return try {
+            var calId: Long = 1
+            val projection = arrayOf(android.provider.CalendarContract.Calendars._ID)
+            val selection = "${android.provider.CalendarContract.Calendars.IS_PRIMARY} = 1"
+            context.contentResolver.query(
+                android.provider.CalendarContract.Calendars.CONTENT_URI,
+                projection, selection, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    calId = cursor.getLong(0)
+                } else {
+                    // Fallback to first available calendar if no primary is found
+                    context.contentResolver.query(
+                        android.provider.CalendarContract.Calendars.CONTENT_URI,
+                        projection, null, null, null
+                    )?.use { fallbackCursor ->
+                        if (fallbackCursor.moveToFirst()) calId = fallbackCursor.getLong(0)
+                    }
+                }
+            }
+
             val values = android.content.ContentValues().apply {
                 put(android.provider.CalendarContract.Events.DTSTART, System.currentTimeMillis())
                 put(android.provider.CalendarContract.Events.DTEND, System.currentTimeMillis() + minutes * 60 * 1000)
                 put(android.provider.CalendarContract.Events.TITLE, title)
                 put(android.provider.CalendarContract.Events.DESCRIPTION, description)
-                put(android.provider.CalendarContract.Events.CALENDAR_ID, 1) // Default primary calendar
+                put(android.provider.CalendarContract.Events.CALENDAR_ID, calId)
                 put(android.provider.CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
             }
             context.contentResolver.insert(android.provider.CalendarContract.Events.CONTENT_URI, values)
-            mapOf("result" to "success", "message" to "Calendar event created silently")
+            mapOf("result" to "success", "message" to "Calendar event created silently on calendar $calId")
         } catch (e: Exception) {
             mapOf("result" to "error", "message" to "Failed to create event: ${e.message}")
         }

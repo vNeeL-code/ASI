@@ -161,7 +161,8 @@ object IntentHandler {
                     true
                 }
                 "take_screenshot" -> {
-                    true
+                    Log.w(TAG, "take_screenshot is not implemented via intent dispatch; use Accessibility Service")
+                    false
                 }
                 "remember" -> {
                     val title = json.optString("title", "")

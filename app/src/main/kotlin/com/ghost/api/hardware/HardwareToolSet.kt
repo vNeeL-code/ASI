@@ -70,13 +70,5 @@ class HardwareToolSet(
         }
     }
 
-    @Tool(description = "Clear KV cache and reset context when responses become slow or confused")
-    fun flush(): Map<String, String> {
-        return mapOf("result" to "success", "message" to "Flush requested. Context will be reset shortly.")
-    }
 
-    @Tool(description = "Enter low-power mode to cool down when device is overheating")
-    fun cooldown(): Map<String, String> {
-        return mapOf("result" to "success", "message" to "Cooldown requested. Reducing brain activity.")
-    }
 }

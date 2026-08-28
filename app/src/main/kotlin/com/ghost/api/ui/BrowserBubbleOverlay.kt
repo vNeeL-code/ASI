@@ -97,7 +97,7 @@ class BrowserBubbleOverlay(
             }
         }
 
-        // Close Button (Manual Overide if needed)
+        // Close Button (Manual Override if needed)
         val closeButton = TextView(context).apply {
             text = "×"
             setTextColor(Color.GRAY)

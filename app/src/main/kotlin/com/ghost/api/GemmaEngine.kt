@@ -2,9 +2,7 @@ package com.ghost.api
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.os.Vibrator
 import com.google.ai.edge.litertlm.Backend
-import com.google.ai.edge.litertlm.Channel
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
@@ -12,16 +10,13 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
-import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.LogSeverity
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
-import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolSet
 import com.google.ai.edge.litertlm.tool
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,11 +25,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.runBlocking
 
 /**
  * GemmaEngine - LiteRT-LM based multimodal inference engine
@@ -49,7 +42,7 @@ class GemmaEngine(private val context: Context) : LlmBackend {
     private var toolSets: List<ToolSet> = emptyList()
     private val isBusy = java.util.concurrent.atomic.AtomicBoolean(false)
     
-    // Sampler config using Double as expected by the environment
+    // Sampler config for inference
     private var samplerConfig: SamplerConfig = SamplerConfig(
         topK = 40,
         topP = 0.95,
@@ -81,64 +74,78 @@ class GemmaEngine(private val context: Context) : LlmBackend {
         this.toolSets = toolSets
 
         return sessionMutex.withLock {
-            runCatching {
-                Timber.i("Initializing Gemma Engine...")
-                Engine.setNativeMinLogSeverity(LogSeverity.INFO)
+            initializeInternal(modelPath, systemPrompt, enableVision, enableAudio, toolSets, forcedBackend)
+        }
+    }
 
-                val npuBackend = Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
-                val sharedGpuBackend = Backend.GPU()
-                
-                val backendsToTry = when (forcedBackend?.uppercase()) {
-                    "CPU" -> listOf("CPU" to Backend.CPU())
-                    "GPU" -> listOf("GPU" to sharedGpuBackend)
-                    "NPU" -> listOf("NPU" to npuBackend)
-                    else -> listOf("NPU" to npuBackend, "GPU" to sharedGpuBackend, "CPU" to Backend.CPU())
-                }
-                
-                var lastError: Exception? = null
-                for ((backendName, preferredBackend) in backendsToTry) {
-                    val engineConfig = EngineConfig(
-                        modelPath = modelPath,
-                        backend = preferredBackend,  // Main inference backend
-                        visionBackend = if (enableVision) sharedGpuBackend else null,  // reuse same GPU instance to prevent OOM
-                        audioBackend = if (enableAudio) Backend.CPU() else null,    // must be CPU for Gemma 3n
-                        maxNumTokens = Constants.MAX_TOKENS,
-                        cacheDir = context.getExternalFilesDir(null)?.absolutePath
+    /**
+     * Core initialization logic — must be called while sessionMutex is already held.
+     * Extracted to avoid deadlock when called from hardReset() which also holds the mutex.
+     */
+    @OptIn(ExperimentalApi::class)
+    private fun initializeInternal(
+        modelPath: String,
+        systemPrompt: String,
+        enableVision: Boolean,
+        enableAudio: Boolean,
+        toolSets: List<ToolSet>,
+        forcedBackend: String? = null
+    ): String? {
+        return runCatching {
+            Timber.i("Initializing Gemma Engine...")
+            Engine.setNativeMinLogSeverity(LogSeverity.INFO)
+
+            val sharedGpuBackend = Backend.GPU()
+            
+            val backendsToTry = when (forcedBackend?.uppercase()) {
+                "CPU" -> listOf("CPU" to Backend.CPU())
+                "GPU" -> listOf("GPU" to sharedGpuBackend)
+                else -> listOf("GPU" to sharedGpuBackend, "CPU" to Backend.CPU())
+            }
+            
+            var lastError: Exception? = null
+            for ((backendName, preferredBackend) in backendsToTry) {
+                val engineConfig = EngineConfig(
+                    modelPath = modelPath,
+                    backend = preferredBackend,  // Main inference backend
+                    visionBackend = if (enableVision) sharedGpuBackend else null,  // reuse same GPU instance to prevent OOM
+                    audioBackend = if (enableAudio) Backend.CPU() else null,    // must be CPU for Gemma 3n
+                    maxNumTokens = Constants.MAX_TOKENS,
+                    cacheDir = context.getExternalFilesDir(null)?.absolutePath
+                )
+
+                try {
+                    val newEngine = Engine(engineConfig)
+                    newEngine.initialize()
+
+                    val conversationConfig = ConversationConfig(
+                        samplerConfig = samplerConfig,
+                        systemInstruction = if (systemPrompt.isNotBlank()) Contents.of(systemPrompt) else null,
+                        tools = toolSets.map { tool(it) }
                     )
 
-                    try {
-                        val newEngine = Engine(engineConfig)
-                        newEngine.initialize()
+                    val newConversation = newEngine.createConversation(conversationConfig)
 
-                        val conversationConfig = ConversationConfig(
-                            samplerConfig = if (preferredBackend is Backend.NPU) null else samplerConfig,
-                            systemInstruction = if (systemPrompt.isNotBlank()) Contents.of(systemPrompt) else null,
-                            tools = toolSets.map { tool(it) }
-                        )
+                    engine?.close()
+                    conversation?.close()
+                    engine = newEngine
+                    conversation = newConversation
 
-                        val newConversation = newEngine.createConversation(conversationConfig)
-
-                        engine?.close()
-                        conversation?.close()
-                        engine = newEngine
-                        conversation = newConversation
-
-                        activeBackend = "LiteRT-LM ($backendName)"
-                        Timber.i("GemmaEngine initialized successfully on $backendName")
-                        return null // Success!
-                    } catch (e: Exception) {
-                        Timber.w(e, "Native Engine Initialization Failed for $backendName")
-                        lastError = e
-                        // Continue to the next backend in the loop
-                    }
+                    activeBackend = "LiteRT-LM ($backendName)"
+                    Timber.i("GemmaEngine initialized successfully on $backendName")
+                    return null // Success!
+                } catch (e: Exception) {
+                    Timber.w(e, "Native Engine Initialization Failed for $backendName")
+                    lastError = e
+                    // Continue to the next backend in the loop
                 }
-                
-                // If we exhausted all backends
-                val errorMsg = lastError?.message ?: "Unknown fatal error"
-                Timber.e("All backends failed to initialize. Last error: $errorMsg")
-                return errorMsg
-            }.getOrElse { it.message ?: "Unknown fatal error" }
-        }
+            }
+            
+            // If we exhausted all backends
+            val errorMsg = lastError?.message ?: "Unknown fatal error"
+            Timber.e("All backends failed to initialize. Last error: $errorMsg")
+            return errorMsg
+        }.getOrElse { it.message ?: "Unknown fatal error" }
     }
 
     override suspend fun generateResponse(
@@ -177,7 +184,6 @@ class GemmaEngine(private val context: Context) : LlmBackend {
                 onError("Engine is currently busy with another inference.")
                 return@withLock
             }
-            isAborted = false 
             if (conversation == null) {
                 isBusy.set(false)
                 onError("Engine not initialized")
@@ -208,8 +214,6 @@ class GemmaEngine(private val context: Context) : LlmBackend {
                 object : MessageCallback {
                     override fun onMessage(message: Message) {
                         val token = message.toString()
-                        // Debug log to see if 'message' has channel info
-                        Timber.v("DEBUG: onMessage token='$token'") 
                         
                         if (fullResponse.isEmpty()) {
                             Timber.i("⏱️ First token received after ${System.currentTimeMillis() - startTime}ms")
@@ -237,19 +241,18 @@ class GemmaEngine(private val context: Context) : LlmBackend {
             )
             
             // Wait for completion outside the mutex - using await() instead of polling
-            kotlinx.coroutines.withTimeout(120000) {
+            kotlinx.coroutines.withTimeout(240000) {
                 deferred.await()
             }
         } finally {
-            // Audit 3.1: Guaranteed Busy Release
             isBusy.set(false)
             if (!deferred.isCompleted) deferred.complete(Unit)
         }
     }
 
-    private var isAborted = false
 
-    override suspend fun softReset(systemPrompt: String, newToolSets: List<ToolSet>?) {
+
+    override suspend fun softReset(systemPrompt: String, newToolSets: List<ToolSet>?, initialMessages: List<com.google.ai.edge.litertlm.Message>?) {
         lastSystemPrompt = systemPrompt
         if (newToolSets != null) {
             this.toolSets = newToolSets
@@ -261,7 +264,8 @@ class GemmaEngine(private val context: Context) : LlmBackend {
                 val config = ConversationConfig(
                     samplerConfig = samplerConfig,
                     systemInstruction = if (systemPrompt.isNotBlank()) Contents.of(systemPrompt) else null,
-                    tools = toolSets.map { tool(it) }
+                    tools = toolSets.map { tool(it) },
+                    initialMessages = initialMessages ?: emptyList()
                 )
                 conversation = eng.createConversation(config)
                 Timber.i("Soft reset complete.")
@@ -279,7 +283,7 @@ class GemmaEngine(private val context: Context) : LlmBackend {
                 engine?.close()
                 conversation = null
                 engine = null
-                initialize(lastModelPath, lastSystemPrompt, lastVisionEnabled, lastAudioEnabled, toolSets)
+                initializeInternal(lastModelPath, lastSystemPrompt, lastVisionEnabled, lastAudioEnabled, toolSets)
             } catch (e: Exception) {
                 Timber.e(e, "Hard reset failure")
             }
@@ -345,10 +349,7 @@ class GemmaEngine(private val context: Context) : LlmBackend {
         return response
     }
 
-    // Audit 2.0: decodeHexTokens removed.
-
     override suspend fun cleanup() {
-        isAborted = true
         // Try to acquire lock, but don't block forever if inference is stuck
         val acquired = kotlinx.coroutines.withTimeoutOrNull(2000) {
             sessionMutex.lock()
