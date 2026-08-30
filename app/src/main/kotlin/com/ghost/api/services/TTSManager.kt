@@ -157,6 +157,84 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
+
+    private fun requestAudioDucking() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val playbackAttributes = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(playbackAttributes)
+                    .setAcceptsDelayedFocusGain(false)
+                    .setOnAudioFocusChangeListener { /* no-op */ }
+                    .build()
+                audioFocusRequest = req
+                audioManager.requestAudioFocus(req)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            }
+            Timber.d("🔊 Audio ducking requested for TTS")
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to request audio ducking")
+        }
+    }
+
+    private fun abandonAudioDucking() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest?.let {
+                    audioManager.abandonAudioFocusRequest(it)
+                    audioFocusRequest = null
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.abandonAudioFocus(null)
+            }
+            Timber.d("🔊 Audio ducking abandoned — media volume restored")
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to abandon audio ducking")
+        }
+    }
+
+    fun cleanMarkdownForSpeech(text: String): String {
+        return text
+            // Strip code blocks
+            .replace(Regex("```[\\s\\S]*?```"), "")
+            // Strip inline code
+            .replace(Regex("`([^`]+)`"), "$1")
+            // Strip ISO / bracket timestamps like [2026-08-30 22:33:00]
+            .replace(Regex("\\[\\d{4}-\\d{2}-\\d{2}[^\\]]*\\]"), "")
+            // Strip UCF / bracket headers like [2026-08-30T...] or [PERSONA...]
+            .replace(Regex("\\[[A-Z_\\s]+\\]"), "")
+            // Strip markdown links [label](url) -> label
+            .replace(Regex("\\[([^\\]]+)\\]\\([^)]+\\)"), "$1")
+            // Strip raw URLs
+            .replace(Regex("https?://\\S+"), "")
+            // Strip bold & italics (**text**, *text*, __text__, _text_)
+            .replace(Regex("\\*\\*([^\\*]+)\\*\\*"), "$1")
+            .replace(Regex("\\*([^\\*]+)\\*"), "$1")
+            .replace(Regex("__([^_]+)__"), "$1")
+            .replace(Regex("(?<=\\s|^)_([^_]+)_(?=\\s|$)"), "$1")
+            // Strip markdown headers (# Header)
+            .replace(Regex("(?m)^#{1,6}\\s*"), "")
+            // Strip list bullets and numbered items (- item, * item, 1. item)
+            .replace(Regex("(?m)^[\\s*\\-+]+\\s*"), "")
+            .replace(Regex("(?m)^\\d+\\.\\s*"), "")
+            // Strip blockquotes (> quote)
+            .replace(Regex("(?m)^>+\\s*"), "")
+            // Strip HTML tags
+            .replace(Regex("<[^>]+>"), "")
+            // Strip common decorative symbols / glyphs
+            .replace(Regex("[✦✧✴️🔵🔯🐋☄️✳️👾🦑Δ∇]"), "")
+            // Collapse multiple newlines & spaces
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val result = tts?.setLanguage(Locale.US) // US English for consistency
@@ -174,12 +252,15 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
 
             tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
+                    requestAudioDucking()
                     context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_START"))
                 }
                 override fun onDone(utteranceId: String?) {
+                    abandonAudioDucking()
                     context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
                 }
                 override fun onError(utteranceId: String?) {
+                    abandonAudioDucking()
                     context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
                 }
             })
@@ -279,11 +360,12 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
      * @return true if speech was initiated, false if deferred or suppressed
      */
     fun smartSpeak(text: String, priority: Priority = Priority.NORMAL): Boolean {
-        if (!isReady || text.isBlank()) return false
+        val cleanText = cleanMarkdownForSpeech(text)
+        if (!isReady || cleanText.isBlank()) return false
 
         val maxLen = TextToSpeech.getMaxSpeechInputLength()
-        if (text.length > maxLen) {
-            val chunks = chunkText(text, maxLen)
+        if (cleanText.length > maxLen) {
+            val chunks = chunkText(cleanText, maxLen)
             var lastResult = false
             for ((index, chunk) in chunks.withIndex()) {
                 val p = if (index == 0) priority else Priority.NORMAL
@@ -291,7 +373,7 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
             }
             return lastResult
         } else {
-            return doSmartSpeak(text, priority, isChunk = false)
+            return doSmartSpeak(cleanText, priority, isChunk = false)
         }
     }
 
@@ -446,8 +528,9 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
     }
 
     fun speakQueued(text: String) {
-        if (isReady && text.isNotBlank()) {
-            tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "GemmaResponse_${System.currentTimeMillis()}")
+        val cleanText = cleanMarkdownForSpeech(text)
+        if (isReady && cleanText.isNotBlank()) {
+            tts?.speak(cleanText, TextToSpeech.QUEUE_ADD, null, "GemmaResponse_${System.currentTimeMillis()}")
         }
     }
 
@@ -474,10 +557,12 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
     }
 
     fun stop() {
+        abandonAudioDucking()
         tts?.stop()
     }
 
     fun shutdown() {
+        abandonAudioDucking()
         tts?.shutdown()
     }
 

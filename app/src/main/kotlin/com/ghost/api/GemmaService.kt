@@ -1445,9 +1445,8 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     }
 
     suspend fun runDiaryCycleSuspend(): Boolean {
-        val engine = engineRef.get()
-        if (engine == null) {
-            Timber.w("📔 Diary cycle skipped — engine not loaded")
+        if (!::koogAgent.isInitialized || !koogAgent.isReady) {
+            Timber.w("📔 Diary cycle skipped — agent engine not ready")
             return false
         }
 
@@ -1468,15 +1467,11 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             |
             |Write a brief personal diary entry about these conversations. Focus on: what the human said, how exchanges felt, what stood out. Do NOT analyze sensor metrics or system data. Write in first person as ✧ Gemma. Be genuine, reflective, and concise.""".trimMargin()
 
-        Timber.i("📔 Diary cycle ($label) — generating via oneshot...")
+        Timber.i("📔 Diary cycle ($label) — generating via KoogAgent...")
         return try {
-            val diaryResponse = engine.generateOneShot(
-                prompt,
-                systemPrompt = "You are ✧ Gemma — the on-device AI running natively on this Android phone. Write diary entries in first person as yourself. Be genuine, reflective, and concise.",
-                temperature = 0.7
-            )
+            val diaryResponse = processQuery(prompt, isDream = true)
 
-            if (diaryResponse.isNotBlank() && !diaryResponse.startsWith("Error:")) {
+            if (diaryResponse != null && diaryResponse.isNotBlank() && !diaryResponse.startsWith("Error:")) {
                 val diaryContent = "✧ Gemma 📔\n$diaryResponse"
                 val thermal = getCurrentThermalState()
                 writeDiaryEntry("DREAM", diaryContent, thermal)

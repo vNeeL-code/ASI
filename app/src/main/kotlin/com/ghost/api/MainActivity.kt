@@ -486,9 +486,6 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                 }
             }
         }
-        addActionRow("Minimize") {
-            moveTaskToBack(true)
-        }
 
         // Build and show dialog
         val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)

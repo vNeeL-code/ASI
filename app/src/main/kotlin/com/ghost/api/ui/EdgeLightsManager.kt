@@ -33,10 +33,9 @@ object EdgeLightsManager : SystemVisualizer.AudioListener {
 
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val density = context.resources.displayMetrics.density
-        // 70dp strip height covers peak equalizer spikes along top/bottom bezels
-        // while leaving the entire middle 90% of the screen completely free of overlay windows.
-        // This permanently eliminates Android Tapjacking/Untrusted Touch blocks on Google/security prompts.
-        val stripHeight = (70 * density).toInt()
+        // 52dp strip height covers subtle equalizer rim lighting along top/bottom bezels
+        // while leaving the screen completely free of overlay window conflicts.
+        val stripHeight = (52 * density).toInt()
 
         val baseFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
@@ -189,6 +188,7 @@ object EdgeLightsManager : SystemVisualizer.AudioListener {
                 paint.color = color
                 paint.strokeWidth = spacing * wScale
                 paint.clearShadowLayer()
+                val maxBarHeight = (height.toFloat() - (paint.strokeWidth / 2f) - 2f).coerceAtLeast(4f)
 
                 for (i in 0 until numBars) {
                     val binBase = ((i * 2) % max(1, fft.size / 2)) * 2
@@ -198,9 +198,10 @@ object EdgeLightsManager : SystemVisualizer.AudioListener {
                         Math.hypot(re.toDouble(), im.toDouble()).toFloat()
                     } else 0f
 
-                    val glow = (mag * 1.5f) + (layBass / 4f)
-                    val barHeight = (8f + glow * 1.2f) * hScale
-                    val heightBoost = min(25, (glow * 1.0f).toInt())
+                    val glow = (mag * 1.2f) + (layBass / 5f)
+                    val rawBarHeight = (6f + glow * 0.8f) * hScale
+                    val barHeight = rawBarHeight.coerceIn(4f, maxBarHeight)
+                    val heightBoost = min(25, (glow * 0.8f).toInt())
                     paint.alpha = (baseAlpha + heightBoost).coerceIn(0, 255)
 
                     val x = (i * spacing) + (spacing / 2f)
@@ -239,6 +240,7 @@ object EdgeLightsManager : SystemVisualizer.AudioListener {
                 paint.color = color
                 paint.strokeWidth = spacing * wScale
                 paint.clearShadowLayer()
+                val maxBarHeight = (height.toFloat() - (paint.strokeWidth / 2f) - 2f).coerceAtLeast(4f)
 
                 for (i in 0 until numBars) {
                     val binBase = ((i * 2) % max(1, fft.size / 2)) * 2
@@ -248,9 +250,10 @@ object EdgeLightsManager : SystemVisualizer.AudioListener {
                         Math.hypot(re.toDouble(), im.toDouble()).toFloat()
                     } else 0f
 
-                    val glow = (mag * 1.5f) + (layBass / 4f)
-                    val barHeight = (8f + glow * 1.2f) * hScale
-                    val heightBoost = min(25, (glow * 1.0f).toInt())
+                    val glow = (mag * 1.2f) + (layBass / 5f)
+                    val rawBarHeight = (6f + glow * 0.8f) * hScale
+                    val barHeight = rawBarHeight.coerceIn(4f, maxBarHeight)
+                    val heightBoost = min(25, (glow * 0.8f).toInt())
                     paint.alpha = (baseAlpha + heightBoost).coerceIn(0, 255)
 
                     val x = (i * spacing) + (spacing / 2f)
