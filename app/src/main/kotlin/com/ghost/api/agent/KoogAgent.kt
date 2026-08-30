@@ -818,13 +818,12 @@ class KoogAgent(
                     
                     cb.storeConversationTurn(event.message, finalResponse, event.sessionId)
                 } else {
-                    // Diary: use clean response, just diary branding
+                    // Diary: use clean response directly without redundant book prefix
                     try {
-                        val ttsText = cleanForTTS(safeCleanResponse)
-                        val diaryContent = "✧ Gemma 📔\n$ttsText"
+                        val cleanText = cleanForTTS(safeCleanResponse)
                         val thermal = cb.getCurrentThermalState()
-                        cb.writeDiaryEntry("DREAM", diaryContent, thermal)
-                        Timber.i("Dream diary logged: ${ttsText.take(50)}")
+                        cb.writeDiaryEntry("DREAM", cleanText, thermal)
+                        Timber.i("Dream diary logged: ${cleanText.take(50)}")
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to log dream diary")
                     }
@@ -905,12 +904,11 @@ class KoogAgent(
                 } else {
                     try {
                         // Phase 9: Dream TTS
-                        val ttsText = cleanForTTS(reflection.ifBlank { "..." })
-                        val diaryContent = "✧ Gemma 📔\n$ttsText"
+                        val cleanText = cleanForTTS(reflection.ifBlank { "..." })
                         val thermal = cb.getCurrentThermalState()
-                        cb.writeDiaryEntry("DREAM", diaryContent, thermal)
-                        cb.showResponse(diaryContent)
-                        if (ttsText.isNotEmpty()) cb.speak(ttsText)
+                        cb.writeDiaryEntry("DREAM", cleanText, thermal)
+                        cb.showResponse(cleanText)
+                        if (cleanText.isNotEmpty()) cb.speak(cleanText)
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to log dream from tool result")
                     }

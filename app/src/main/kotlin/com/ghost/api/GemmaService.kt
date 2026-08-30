@@ -1519,9 +1519,9 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             val diaryResponse = processQuery(prompt, isDream = true)
 
             if (diaryResponse != null && diaryResponse.isNotBlank() && !diaryResponse.startsWith("Error:")) {
-                val diaryContent = "✧ Gemma 📔\n$diaryResponse"
+                val cleanContent = diaryResponse.trim()
                 val intent = Intent("com.ghost.api.ACTION_DIARY_ENTRY_POSTED").apply {
-                    putExtra("content", diaryContent)
+                    putExtra("content", cleanContent)
                     setPackage(packageName)
                 }
                 sendBroadcast(intent)
