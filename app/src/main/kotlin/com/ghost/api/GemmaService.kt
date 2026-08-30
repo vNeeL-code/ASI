@@ -60,6 +60,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     companion object {
         var instance: GemmaService? = null
             private set
+        @Volatile var isInferencing: Boolean = false
     }
 
     inner class LocalBinder : android.os.Binder() {
@@ -857,20 +858,25 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
         if (!isDream) markActivity()
 
-        return kotlinx.coroutines.withTimeoutOrNull(240000) {
-            val response = koogAgent.processUserMessage(
-                message = userPrompt,
-                sessionId = sessionId ?: java.util.UUID.randomUUID().toString(),
-                isDream = isDream
-            )
-            
-            // Watchdog Fix (Audit 3.0): Reset crash counter on successful inference
-            if (response != null && !response.contains("Error:")) {
-                getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
-                    .edit().putInt("init_crash_count", 0).apply()
+        isInferencing = true
+        try {
+            return kotlinx.coroutines.withTimeoutOrNull(240000) {
+                val response = koogAgent.processUserMessage(
+                    message = userPrompt,
+                    sessionId = sessionId ?: java.util.UUID.randomUUID().toString(),
+                    isDream = isDream
+                )
+                
+                // Watchdog Fix (Audit 3.0): Reset crash counter on successful inference
+                if (response != null && !response.contains("Error:")) {
+                    getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                        .edit().putInt("init_crash_count", 0).apply()
+                }
+                
+                response ?: "Error: Agent returned null."
             }
-            
-            response ?: "Error: Agent returned null."
+        } finally {
+            isInferencing = false
         }
     }
 

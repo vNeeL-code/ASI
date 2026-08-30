@@ -6,11 +6,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
 import androidx.core.graphics.ColorUtils
+import com.ghost.api.Constants
+import com.ghost.api.GemmaService
 import com.ghost.api.audio.SystemVisualizer
 import kotlin.math.*
 
@@ -57,9 +60,25 @@ class AvatarWallpaperService : WallpaperService() {
         // Animation loop
         private var rotationAngle = 0f
         private var isVisible = false
+        private var frameSkipCounter = 0
         private val frameCallback = object : android.view.Choreographer.FrameCallback {
             override fun doFrame(frameTimeNanos: Long) {
                 if (isVisible) {
+                    val prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                    val backend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO") ?: "AUTO"
+                    val isInferencing = GemmaService.isInferencing
+
+                    // Dynamic Substrate Throttling: If CPU inference is active on weak devices, cap wallpaper to 30fps
+                    if (backend == "CPU" && isInferencing) {
+                        frameSkipCounter++
+                        if (frameSkipCounter % 2 != 0) {
+                            try {
+                                android.view.Choreographer.getInstance().postFrameCallback(this)
+                            } catch (e: Exception) {}
+                            return
+                        }
+                    }
+
                     interpolateColors()
                     drawFrame()
                     try {
@@ -130,9 +149,24 @@ class AvatarWallpaperService : WallpaperService() {
             val holder = surfaceHolder
             var canvas: Canvas? = null
             try {
-                // Pure software CPU canvas — completely isolates wallpaper from GPU to prevent
-                // driver TDR / VRAM collisions with Gemma's on-device OpenCL/Vulkan LLM inference.
-                canvas = holder.lockCanvas()
+                val prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                val backend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO") ?: "AUTO"
+                val isSafeMode = prefs.getBoolean("safe_mode", false)
+
+                // Substrate Guardrail Inversion:
+                // 1. GPU/NPU/AUTO backend -> software CPU canvas (lockCanvas) to preserve 100% GPU VRAM & ALUs for LiteRT-LM.
+                // 2. CPU backend or Safe Mode (weak devices) -> hardware GPU canvas (lockHardwareCanvas) to offload
+                //    geometry rendering to GPU, freeing CPU cores for INT4 matrix multiplication.
+                canvas = if ((backend == "CPU" || isSafeMode) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        holder.lockHardwareCanvas()
+                    } catch (e: Exception) {
+                        holder.lockCanvas()
+                    }
+                } else {
+                    holder.lockCanvas()
+                }
+
                 if (canvas != null) {
                     val width = canvas.width.toFloat()
                     val height = canvas.height.toFloat()
