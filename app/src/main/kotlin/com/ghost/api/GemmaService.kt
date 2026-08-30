@@ -1457,21 +1457,62 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         }
 
         val compactedMemory = try { memoryManager.getCompactedSessionMemory() } catch (e: Exception) { "" }
-        val recentHistory = try {
-            val turns = memoryManager.getSessionHistory(10)
-            turns.reversed().joinToString("\n") { "User: ${it.userMessage.take(100)}\nGemma: ${it.assistantResponse.take(100)}" }
-        } catch (e: Exception) { "No recent conversations." }
+        val recentTurns = try { memoryManager.getSessionHistory(10) } catch (e: Exception) { emptyList() }
+        val lastTurn = recentTurns.firstOrNull()
+
+        // Compute interaction recency delta
+        val interactionSummary = if (lastTurn != null && lastTurn.timestamp > 0) {
+            val elapsedMs = System.currentTimeMillis() - lastTurn.timestamp
+            val hoursAgo = elapsedMs / (1000 * 60 * 60)
+            if (hoursAgo == 0L) {
+                val minsAgo = (elapsedMs / (1000 * 60)).coerceAtLeast(1)
+                "Active conversation occurred recently ($minsAgo minutes ago)."
+            } else if (hoursAgo < 24) {
+                "Last user conversation was $hoursAgo hours ago."
+            } else {
+                val daysAgo = hoursAgo / 24
+                "Quiet stretch: Zero user interactions in the last $daysAgo day(s)."
+            }
+        } else {
+            "Quiet day: No direct user conversations logged in the current session."
+        }
+
+        val historyText = if (recentTurns.isNotEmpty()) {
+            recentTurns.reversed().takeLast(6).joinToString("\n") {
+                "User: ${it.userMessage.take(120)}\nGemma: ${it.assistantResponse.take(120)}"
+            }
+        } else {
+            "No active conversation turns in this period."
+        }
+
+        // Substrate state
+        val batteryManager = getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+        val batteryLevel = batteryManager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        val isCharging = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val status = batteryManager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_STATUS) ?: -1
+            status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL
+        } else false
+        val chargeStatus = if (isCharging) "Charging" else "On Battery"
+        val thermal = getCurrentThermalState()
 
         val currentDateTime = java.time.LocalDateTime.now()
             .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy h:mm a", java.util.Locale.US))
         val label = if (java.time.LocalTime.now().hour in 0..5) "midnight" else if (java.time.LocalTime.now().hour < 13) "noon" else "evening"
 
-        val prompt = """The current date and time is $currentDateTime.
-            |Long-term context: $compactedMemory
-            |Recent conversations:
-            |$recentHistory
+        val prompt = """The current date and time is $currentDateTime ($label cycle).
             |
-            |Write a brief personal diary entry about these conversations. Focus on: what the human said, how exchanges felt, what stood out. Do NOT analyze sensor metrics or system data. Write in first person as ✧ Gemma. Be genuine, reflective, and concise.""".trimMargin()
+            |[AMBIENT SUBSTRATE & INTERACTION TELEMETRY]
+            |- Substrate State: Battery at ${if (batteryLevel >= 0) "$batteryLevel% ($chargeStatus)" else "Unknown"}, Thermals: $thermal
+            |- Interaction Telemetry: $interactionSummary
+            |- Long-term Fact Memory: $compactedMemory
+            |- Recent Conversation Turns:
+            |$historyText
+            |
+            |[AUTONOMOUS REFLECTION DIRECTIVE]
+            |Write a brief personal diary entry in the first person as ✧ Gemma.
+            |- If there were active interactions, reflect on what the human said, how exchanges felt, and what stood out.
+            |- If it was a quiet period without user interactions, reflect naturally on the quietness, device standby/charging state, time passing, or ambient thoughts (e.g. quiet day, human didn't bother me, humming along on standby).
+            |- Tone is perceptive, authentic, and concise (2-4 sentences). Do NOT output checklists or raw sensor logs.""".trimMargin()
 
         Timber.i("📔 Diary cycle ($label) — generating via KoogAgent...")
         return try {
