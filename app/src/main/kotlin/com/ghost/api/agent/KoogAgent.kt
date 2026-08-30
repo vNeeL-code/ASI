@@ -823,10 +823,10 @@ class KoogAgent(
                         val ttsText = cleanForTTS(safeCleanResponse)
                         val diaryContent = "✧ Gemma 📔\n$ttsText"
                         val thermal = cb.getCurrentThermalState()
-                        cb.writeDiaryEntry("MEMORY", diaryContent, thermal)
-                        Timber.i("Memory logged: ${ttsText.take(50)}")
+                        cb.writeDiaryEntry("DREAM", diaryContent, thermal)
+                        Timber.i("Dream diary logged: ${ttsText.take(50)}")
                     } catch (e: Exception) {
-                        Timber.e(e, "Failed to log memory")
+                        Timber.e(e, "Failed to log dream diary")
                     }
                 }
             }

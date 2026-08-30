@@ -1520,9 +1520,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
             if (diaryResponse != null && diaryResponse.isNotBlank() && !diaryResponse.startsWith("Error:")) {
                 val diaryContent = "✧ Gemma 📔\n$diaryResponse"
-                val thermal = getCurrentThermalState()
-                writeDiaryEntry("DREAM", diaryContent, thermal)
-
                 val intent = Intent("com.ghost.api.ACTION_DIARY_ENTRY_POSTED").apply {
                     putExtra("content", diaryContent)
                     setPackage(packageName)

@@ -91,10 +91,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                     audioVisualizerView?.visibility = View.GONE
                 }
                 "com.ghost.api.ACTION_DIARY_ENTRY_POSTED" -> {
-                    val content = intent.getStringExtra("content") ?: ""
-                    if (content.isNotBlank()) {
-                        chatViewModel.addMessage(ChatMessage(content = content, isFromUser = false, eventType = "DREAM"))
-                    }
+                    Timber.i("📔 Diary entry recorded and persisted to storage")
                 }
             }
         }
@@ -505,40 +502,63 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         }
         root.addView(container)
 
+        // Filter for human-readable diary/dream reflections (skipping legacy JSON dumps)
+        val validEntries = entries.filter {
+            !it.observation.trim().startsWith("{") && !it.observation.trim().startsWith("Session distilled:")
+        }
+
         container.addView(TextView(this).apply {
-            text = "✧ Gemma Diary Logs (${entries.size})"
+            text = "✧ Gemma Diary Logs (${validEntries.size})"
             textSize = 16f
             setTextColor(Color.parseColor("#A78BFA"))
             letterSpacing = 0.1f
             setPadding(0, 0, 0, 24)
         })
 
-        if (entries.isEmpty()) {
+        if (validEntries.isEmpty()) {
             container.addView(TextView(this).apply {
-                text = "No diary entries yet. Tap 'Trigger Diary Log Now' or let the autonomous worker run in background."
+                text = "No dream diary entries yet. Tap 'Trigger Diary Log Now' or let the autonomous worker run at noon/midnight."
                 textSize = 13f
                 setTextColor(Color.parseColor("#99FFFFFF"))
             })
         } else {
-            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-            for (entry in entries) {
+            val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy • h:mm a", Locale.US)
+            for (entry in validEntries) {
                 val dateStr = sdf.format(Date(entry.timestamp))
-                container.addView(TextView(this).apply {
-                    text = "[$dateStr • ${entry.eventType}]"
+                val cleanBody = entry.observation
+                    .replace(Regex("^✧ Gemma 📔\\s*"), "")
+                    .replace(Regex("^✧ Diary Entry:[^\\n]*\\n"), "")
+                    .trim()
+
+                // Entry card container
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(32, 24, 32, 24)
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(Color.parseColor("#141414"))
+                        cornerRadius = 24f
+                        setStroke(1, Color.parseColor("#26FFFFFF"))
+                    }
+                    val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    params.bottomMargin = 24
+                    layoutParams = params
+                }
+
+                card.addView(TextView(this).apply {
+                    text = "✧ DREAM • $dateStr"
                     textSize = 11f
                     setTextColor(Color.parseColor("#A78BFA"))
-                    setPadding(0, 16, 0, 4)
+                    setPadding(0, 0, 0, 8)
                 })
-                container.addView(TextView(this).apply {
-                    text = entry.observation
-                    textSize = 13f
+
+                card.addView(TextView(this).apply {
+                    text = cleanBody
+                    textSize = 13.5f
                     setTextColor(Color.WHITE)
-                    setPadding(0, 0, 0, 16)
+                    setLineSpacing(6f, 1f)
                 })
-                container.addView(View(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
-                    setBackgroundColor(Color.parseColor("#1AFFFFFF"))
-                })
+
+                container.addView(card)
             }
         }
 

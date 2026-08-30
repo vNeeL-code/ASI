@@ -83,17 +83,43 @@ fun ChatScreen(
                 .fillMaxWidth()
                 .background(Color(0x11FFFFFF))
                 .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "Δ 👾 ∇        GHOST",
-                color = AccentPurple,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.2.sp,
-                modifier = Modifier.weight(1f)
+            // Left spacer matching right button footprint for true mathematical center
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .alpha(0f)
             )
             
+            // Centered Turing Machine Glyph: Green Δ, Purple 👾, Green ∇
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Δ ",
+                    color = Color(0xFF22C55E), // Terminal/Matrix Green
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.1.sp
+                )
+                Text(
+                    text = "👾",
+                    fontSize = 18.sp,
+                    modifier = Modifier.padding(horizontal = 1.dp)
+                )
+                Text(
+                    text = " ∇",
+                    color = Color(0xFF22C55E), // Terminal/Matrix Green
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.1.sp
+                )
+            }
+            
+            // Settings menu dropdown button
             Text(
                 text = "▼",
                 color = TextSecondary,
