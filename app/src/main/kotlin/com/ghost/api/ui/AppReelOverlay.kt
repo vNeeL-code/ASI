@@ -10,14 +10,16 @@ import android.os.Build
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.Toast
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.*
 
 /**
- * AppReelOverlay - Compact horizontal tape dock hovering above the top apex node.
- * Summoned by touching/holding the Top Orange ✧ node.
- * Features smooth horizontal scrubbing, haptic clicks, swipe-down dismiss,
- * and explicit tap-to-launch (never accidental launch on drag release).
+ * AppReelOverlay - Ultra-smooth horizontal tape dock hovering above the top apex node.
+ * Uses a static pre-cache to eliminate summon stutter (0ms open).
+ * Features distance-accelerated scrolling, haptic ticks, swipe-down dismiss, and tap-to-launch.
  */
 @SuppressLint("ViewConstructor")
 class AppReelOverlay(
@@ -31,6 +33,52 @@ class AppReelOverlay(
         val packageName: String,
         val iconBitmap: Bitmap?
     )
+
+    companion object AppListCache {
+        @Volatile var cachedApps: List<ReelAppItem> = emptyList()
+        @Volatile var isLoaded: Boolean = false
+
+        fun preload(context: Context) {
+            if (isLoaded && cachedApps.isNotEmpty()) return
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val pm = context.packageManager
+                    val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                        addCategory(Intent.CATEGORY_LAUNCHER)
+                    }
+                    val resolveInfos = pm.queryIntentActivities(intent, 0)
+                    val items = resolveInfos.mapNotNull { info ->
+                        try {
+                            val label = info.loadLabel(pm).toString()
+                            val pkg = info.activityInfo.packageName
+                            val iconDrawable = info.loadIcon(pm)
+                            val bmp = drawableToBitmap(context, iconDrawable)
+                            ReelAppItem(label, pkg, bmp)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    cachedApps = items
+                    isLoaded = true
+                    Timber.i("AppListCache preloaded ${items.size} apps")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to preload AppListCache")
+                }
+            }
+        }
+
+        private fun drawableToBitmap(context: Context, drawable: Drawable): Bitmap? {
+            if (drawable is BitmapDrawable && drawable.bitmap != null) {
+                return drawable.bitmap
+            }
+            val size = (38 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            return bitmap
+        }
+    }
 
     private val appItems = mutableListOf<ReelAppItem>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -56,7 +104,13 @@ class AppReelOverlay(
 
     init {
         setWillNotDraw(false)
-        loadInstalledApps()
+        
+        if (cachedApps.isNotEmpty()) {
+            appItems.addAll(cachedApps)
+        } else {
+            preload(context)
+            loadSynchronousFallback()
+        }
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -75,7 +129,7 @@ class AppReelOverlay(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
-            y = -dpToPx(190) // Positioned gracefully above the top orange ✧ apex
+            y = -dpToPx(270) // Floating cleanly ABOVE the top orange ✧ node (no overlap)
         }
 
         textPaint.apply {
@@ -85,7 +139,7 @@ class AppReelOverlay(
         }
     }
 
-    private fun loadInstalledApps() {
+    private fun loadSynchronousFallback() {
         try {
             val pm = context.packageManager
             val intent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -96,24 +150,12 @@ class AppReelOverlay(
                 val label = info.loadLabel(pm).toString()
                 val pkg = info.activityInfo.packageName
                 val iconDrawable = info.loadIcon(pm)
-                val bmp = drawableToBitmap(iconDrawable)
+                val bmp = drawableToBitmap(context, iconDrawable)
                 appItems.add(ReelAppItem(label, pkg, bmp))
             }
         } catch (e: Exception) {
-            Timber.e(e, "Failed to load apps for reel")
+            Timber.e(e, "Failed to load synchronous fallback apps")
         }
-    }
-
-    private fun drawableToBitmap(drawable: Drawable): Bitmap? {
-        if (drawable is BitmapDrawable && drawable.bitmap != null) {
-            return drawable.bitmap
-        }
-        val size = dpToPx(38).coerceAtLeast(1)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-        return bitmap
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -121,10 +163,10 @@ class AppReelOverlay(
         val cx = width / 2f
         val cy = height / 2f - dpToPx(4)
 
-        // 1. Sleek Glassmorphic Floating Dock
+        // 1. Glassmorphic Floating Dock Background
         val bgRect = RectF(0f, 0f, width.toFloat(), height.toFloat())
         paint.style = Paint.Style.FILL
-        paint.color = Color.parseColor("#EE121216")
+        paint.color = Color.parseColor("#F2121216")
         canvas.drawRoundRect(bgRect, dpToPx(16).toFloat(), dpToPx(16).toFloat(), paint)
 
         paint.style = Paint.Style.STROKE
@@ -235,8 +277,9 @@ class AppReelOverlay(
                         return true
                     }
 
-                    // Horizontal Scrolling
-                    scrollOffset -= dx * 1.35f
+                    // Distance-accelerated horizontal scrolling
+                    val acceleration = 1.0f + (abs(event.x - startTouchX) / (width * 0.5f)).coerceIn(0f, 1.5f)
+                    scrollOffset -= dx * 1.25f * acceleration
                     totalDragDistance += abs(dx)
                     lastTouchX = event.x
                     invalidate()
@@ -248,12 +291,12 @@ class AppReelOverlay(
                 val threshold = dpToPx(6).toFloat()
 
                 if (totalDragDistance < threshold) {
-                    // Tap event -> Launch tapped item!
+                    // Explicit Tap on Card -> Launch!
                     val cx = width / 2f
                     val tappedIndex = ((event.x - cx + scrollOffset) / stride).roundToInt().coerceIn(0, appItems.size - 1)
                     launchAppAtIndex(tappedIndex)
                 } else {
-                    // Drag ended -> Snap to closest item and STAY OPEN (do not launch!)
+                    // Drag ended -> Snap to closest card and stay open
                     val nearestOffset = selectedIndex * stride
                     scrollOffset = nearestOffset
                     invalidate()

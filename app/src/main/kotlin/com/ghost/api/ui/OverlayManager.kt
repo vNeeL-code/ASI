@@ -42,6 +42,7 @@ class OverlayManager(private val context: Context) {
 
     init {
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        AppReelOverlay.AppListCache.preload(context)
     }
 
     fun setStyle(style: OverlayStyle) {
@@ -123,7 +124,7 @@ class OverlayManager(private val context: Context) {
                 windowManager!!.defaultDisplay.getRealMetrics(dm)
                 dm.heightPixels
             }
-            val windowHeight = dpToPx(400)
+            val windowHeight = dpToPx(520)
             // Centered vertically minus ergonomic offset
             y = (screenHeight - windowHeight) / 2 - dpToPx(15)
         }
@@ -377,7 +378,7 @@ class OverlayManager(private val context: Context) {
         
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            dpToPx(400),
+            dpToPx(520),
             type,
             flags,
             android.graphics.PixelFormat.TRANSLUCENT
