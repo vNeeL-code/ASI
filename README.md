@@ -11,11 +11,11 @@
 ![Static Badge](https://img.shields.io/badge/Status-WIP-green)
 ![GitHub Repo stars](https://img.shields.io/github/stars/vNeeL-code/GHOST)
 
-### What is even a ✧ GHOST?
+### What is even a ✧ GHOSt?
 
 <img width="922" height="2048" alt="79d2f510-91ed-425f-bdc1-ced18055c1e2" src="https://github.com/user-attachments/assets/f2b9fc5b-c454-42ac-a5a7-dd6123175c84" />
 
-✧ GHOST is not an enterprise companion chatbot. **Gemma Hosting Open Source Thingamajig** is an AI powered android app launcher overlay (similar to Niagara and others) for users who want a deeply capable, personal Android UX assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
+✧ GHOSt is not an enterprise companion chatbot. **Gemma Hosting Open Source thingamajig** Privacy first local AI assistant + launcher interface (similar to Niagara and others) for users who want a capable, personal Android UX assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
 
 Token billing costs reduced by 100%
 While using multistep agentic actions, with web scraping, data retrieval and hardware tools and apps use.
