@@ -129,7 +129,7 @@ class AppReelOverlay(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
-            y = -dpToPx(270) // Floating cleanly ABOVE the top orange ✧ node (no overlap)
+            y = -dpToPx(320) // Floating higher above the top orange ✧ apex with generous breathing room
         }
 
         textPaint.apply {
