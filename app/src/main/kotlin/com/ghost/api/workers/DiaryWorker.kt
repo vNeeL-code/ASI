@@ -55,38 +55,55 @@ class DiaryWorker(
         const val WORK_NAME = "com.ghost.api.DIARY_PERIODIC_WORK"
 
         fun schedule(context: Context) {
+            val prefs = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            val cadence = prefs.getString(Constants.PREF_DIARY_CADENCE, "12") ?: "12"
+            
+            if (cadence == "OFF" || !prefs.getBoolean(Constants.PREF_AUTONOMOUS_DIARY, true)) {
+                cancel(context)
+                return
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiresBatteryNotLow(true)
                 .build()
 
-            val now = java.time.ZonedDateTime.now()
-            val nextNoon = now.withHour(12).withMinute(0).withSecond(0).withNano(0)
-            val nextMidnight = (if (now.hour >= 12) now.plusDays(1) else now)
-                .withHour(0).withMinute(0).withSecond(0).withNano(0)
+            val workRequest = when (cadence) {
+                "1" -> {
+                    PeriodicWorkRequestBuilder<DiaryWorker>(1, TimeUnit.HOURS, 15, TimeUnit.MINUTES)
+                        .setConstraints(constraints)
+                        .build()
+                }
+                "3" -> {
+                    PeriodicWorkRequestBuilder<DiaryWorker>(3, TimeUnit.HOURS, 15, TimeUnit.MINUTES)
+                        .setConstraints(constraints)
+                        .build()
+                }
+                else -> { // "12" Default (Noon & Midnight)
+                    val now = java.time.ZonedDateTime.now()
+                    val nextNoon = now.withHour(12).withMinute(0).withSecond(0).withNano(0)
+                    val nextMidnight = (if (now.hour >= 12) now.plusDays(1) else now)
+                        .withHour(0).withMinute(0).withSecond(0).withNano(0)
 
-            val nextTarget = when {
-                now.isBefore(nextNoon) -> nextNoon
-                now.isBefore(nextMidnight) -> nextMidnight
-                else -> nextNoon.plusDays(1)
+                    val nextTarget = when {
+                        now.isBefore(nextNoon) -> nextNoon
+                        now.isBefore(nextMidnight) -> nextMidnight
+                        else -> nextNoon.plusDays(1)
+                    }
+
+                    val initialDelayMs = java.time.Duration.between(now, nextTarget).toMillis().coerceAtLeast(0)
+                    PeriodicWorkRequestBuilder<DiaryWorker>(12, TimeUnit.HOURS, 30, TimeUnit.MINUTES)
+                        .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
+                        .setConstraints(constraints)
+                        .build()
+                }
             }
-
-            val initialDelayMs = java.time.Duration.between(now, nextTarget).toMillis().coerceAtLeast(0)
-
-            val workRequest = PeriodicWorkRequestBuilder<DiaryWorker>(
-                12, TimeUnit.HOURS,
-                30, TimeUnit.MINUTES
-            )
-                .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
-                .setConstraints(constraints)
-                .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 workRequest
             )
-            val mins = initialDelayMs / (1000 * 60)
-            Timber.i("📔 DiaryWorker: Scheduled for 12-hour intervals targeting noon/midnight (next in $mins mins)")
+            Timber.i("📔 DiaryWorker: Scheduled with cadence: $cadence hours")
         }
 
         fun cancel(context: Context) {

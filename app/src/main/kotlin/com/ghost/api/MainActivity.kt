@@ -369,16 +369,33 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             Toast.makeText(this, if (checked) "PiP overlays on" else "PiP overlays off", Toast.LENGTH_SHORT).show()
         }
 
-        // Autonomous Diary Logs toggle
-        addToggleRow("Autonomous Diary Logs", prefs.getBoolean(Constants.PREF_AUTONOMOUS_DIARY, true)) { checked ->
-            prefs.edit().putBoolean(Constants.PREF_AUTONOMOUS_DIARY, checked).apply()
-            if (checked) {
-                com.ghost.api.workers.DiaryWorker.schedule(this)
-                Toast.makeText(this, "Autonomous diary enabled", Toast.LENGTH_SHORT).show()
-            } else {
-                com.ghost.api.workers.DiaryWorker.cancel(this)
-                Toast.makeText(this, "Autonomous diary disabled", Toast.LENGTH_SHORT).show()
-            }
+        // Diary Cadence Selector (1h / 3h / 12h / Off)
+        val currentCadence = prefs.getString(Constants.PREF_DIARY_CADENCE, "12") ?: "12"
+        val cadenceLabel = when (currentCadence) {
+            "1" -> "1 Hour"
+            "3" -> "3 Hours"
+            "12" -> "12 Hours (Noon/Midnight)"
+            "OFF" -> "Off"
+            else -> "12 Hours"
+        }
+        addToggleRow("Autonomous Diary: $cadenceLabel", currentCadence != "OFF") { checked ->
+            val options = arrayOf("1 Hour (High Frequency)", "3 Hours (Dynamic Daily)", "12 Hours (Noon & Midnight)", "Off (Manual Only)")
+            val values = arrayOf("1", "3", "12", "OFF")
+            val currentIdx = values.indexOf(prefs.getString(Constants.PREF_DIARY_CADENCE, "12")).let { if (it < 0) 2 else it }
+            
+            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+                .setTitle("Select Diary Cadence")
+                .setSingleChoiceItems(options, currentIdx) { d, which ->
+                    val selectedValue = values[which]
+                    prefs.edit()
+                        .putString(Constants.PREF_DIARY_CADENCE, selectedValue)
+                        .putBoolean(Constants.PREF_AUTONOMOUS_DIARY, selectedValue != "OFF")
+                        .apply()
+                    com.ghost.api.workers.DiaryWorker.schedule(this)
+                    Toast.makeText(this, "Diary set to ${options[which]}", Toast.LENGTH_SHORT).show()
+                    d.dismiss()
+                }
+                .show()
         }
 
         // Mute TTS toggle (momentary — stops current speech)

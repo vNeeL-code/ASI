@@ -729,7 +729,12 @@ class KoogAgent(
             // occurred seamlessly within the same inference turn.
             
             if (!event.isDream) {
-                _conversationHistory.add(Message(role = "assistant", content = response))
+                synchronized(_conversationHistory) {
+                    _conversationHistory.add(Message(role = "assistant", content = response))
+                    while (_conversationHistory.size > 10) {
+                        _conversationHistory.removeAt(0)
+                    }
+                }
             }
 
             // 8. Dynamic KV Cache Flush based on token limit
@@ -1224,6 +1229,11 @@ class KoogAgent(
             .replace(Regex("<\\|tool_response>.*?<tool_response\\|>", RegexOption.DOT_MATCHES_ALL), "")
             .replace(Regex("<call>.*?</call>", RegexOption.DOT_MATCHES_ALL), "")
             .replace(Regex("\\[\\[([A-Z_a-z0-9]+)(?::([^\\]]+))?\\]\\]"), "")
+            // Malformed bracketed pseudo-tools e.g. [add_memory:.../memory] or [save_memory:...]
+            .replace(Regex("\\[[a-zA-Z_]+:[^\\]]+\\]"), "")
+            // Spontaneous thinking/reasoning prefixes
+            .replace(Regex("(?i)^Thinking:.*?(\\n\\n|$)", RegexOption.DOT_MATCHES_ALL), "")
+            .replace(Regex("(?i)^Reasoning:.*?(\\n\\n|$)", RegexOption.DOT_MATCHES_ALL), "")
             // Gemma 4 string delimiters and stray protocol fragments
             .replace("<|\"|>", "")
             .replace(Regex("<\\|[a-z_]+\\|?>"), "")

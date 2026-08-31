@@ -198,6 +198,40 @@ class SystemToolSet(private val context: Context) : ToolSet {
         }
     }
 
+    @Tool(description = "Reads recent diary entries and reflections from persistent memory and Google Calendar")
+    fun read_diary(
+        @ToolParam(description = "Number of days in the past to look back (default: 7)") days: Int = 7
+    ): Map<String, String> {
+        return try {
+            val now = System.currentTimeMillis()
+            val past = now - (days * 24 * 60 * 60 * 1000L)
+            val memories = DiaryManager(context).searchMemories("DREAM")
+            val dbEntries = kotlinx.coroutines.runBlocking {
+                com.ghost.api.database.MemoryManager(context).getRecentDiaryEntries(20)
+            }.filter { it.eventType == "DREAM" && it.timestamp >= past }
+
+            val entries = mutableListOf<String>()
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+            
+            dbEntries.forEach {
+                val dateStr = sdf.format(java.util.Date(it.timestamp))
+                val cleanBody = it.observation.take(250).replace("\n", " ")
+                entries.add("[$dateStr] $cleanBody")
+            }
+
+            if (entries.isEmpty() && memories.isNotEmpty()) {
+                memories.take(10).forEach { entries.add(it.take(250)) }
+            }
+
+            mapOf(
+                "result" to "success",
+                "diary_entries" to if (entries.isEmpty()) "No diary entries logged in the last $days days." else entries.joinToString("\n\n")
+            )
+        } catch (e: Exception) {
+            mapOf("result" to "error", "message" to "Failed to read diary: ${e.message}")
+        }
+    }
+
     // Automation tools moved to UiMacroToolSet
 
     @Tool(description = "Saves a semantic fact memory")

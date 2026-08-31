@@ -243,6 +243,15 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                 tts?.setLanguage(Locale.getDefault())
             }
 
+            // Configure Assistant AudioAttributes so AudioPolicy server properly ducks background media (Spotify/VLC)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val assistantAttributes = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                tts?.setAudioAttributes(assistantAttributes)
+            }
+
             // Tune voice parameters for smoother output
             tts?.setSpeechRate(0.95f)  // Slightly slower than default (1.0)
             tts?.setPitch(1.0f)        // Normal pitch
