@@ -414,7 +414,6 @@ class OverlayManager(private val context: Context) {
     fun isVisible(): Boolean = isShowing
 
     private var scratchpadOverlay: ScratchpadOverlay? = null
-    private var appReelOverlay: CsgoAppReelOverlay? = null
 
     fun showScratchpad() {
         if (!canDrawOverlay()) return
@@ -447,6 +446,8 @@ class OverlayManager(private val context: Context) {
         }
     }
 
+    private var appReelOverlay: AppReelOverlay? = null
+
     fun showAppReel() {
         if (!canDrawOverlay()) return
         if (appReelOverlay != null) {
@@ -455,13 +456,13 @@ class OverlayManager(private val context: Context) {
         }
         try {
             val wm = windowManager ?: return
-            appReelOverlay = CsgoAppReelOverlay(
+            appReelOverlay = AppReelOverlay(
                 context = context,
                 windowManager = wm,
                 onDismiss = { hideAppReel() }
             )
             wm.addView(appReelOverlay, appReelOverlay?.windowParams)
-            Timber.i("CS:GO App Reel overlay opened")
+            Timber.i("App Reel overlay opened")
         } catch (e: Exception) {
             Timber.e(e, "Failed to show App Reel overlay")
         }

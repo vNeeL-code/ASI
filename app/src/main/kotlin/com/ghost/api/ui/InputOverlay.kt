@@ -59,9 +59,11 @@ class InputOverlay(
 
     init {
         // Main Frame size (expanded for 6-point radial hexagon/diamond)
+        clipChildren = false
+        clipToPadding = false
         layoutParams = LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(440) 
+            dpToPx(480) 
         ).apply {
             gravity = Gravity.CENTER
         }
@@ -277,12 +279,8 @@ class InputOverlay(
             textSize = 24f
             setTextColor(colorCyan)
             gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(colorSurface)
-                setStroke(dpToPx(2), colorCyan)
-            }
-            elevation = dpToPx(8).toFloat()
+            background = createCircleBackground(colorSurface)
+            elevation = dpToPx(6).toFloat()
             translationX = tx
             translationY = ty
             layoutParams = LayoutParams(btnSize, btnSize).apply {

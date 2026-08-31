@@ -14,12 +14,13 @@ import timber.log.Timber
 import kotlin.math.*
 
 /**
- * CsgoAppReelOverlay - Compact horizontal CS:GO case-opening style tape reel.
- * Summoned by tapping the Top Orange Apex node.
- * Features horizontal inertia tape physics, center needle reticle, and haptic clicks.
+ * AppReelOverlay - Compact horizontal tape dock hovering above the top apex node.
+ * Summoned by touching/holding the Top Orange ✧ node.
+ * Features smooth horizontal scrubbing, haptic clicks, swipe-down dismiss,
+ * and explicit tap-to-launch (never accidental launch on drag release).
  */
 @SuppressLint("ViewConstructor")
-class CsgoAppReelOverlay(
+class AppReelOverlay(
     context: Context,
     private val windowManager: WindowManager,
     private val onDismiss: () -> Unit
@@ -34,10 +35,12 @@ class CsgoAppReelOverlay(
     private val appItems = mutableListOf<ReelAppItem>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val needlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var scrollOffset = 0f
     private var lastTouchX = 0f
+    private var startTouchX = 0f
+    private var startTouchY = 0f
+    private var totalDragDistance = 0f
     private var isDragging = false
     private var selectedIndex = 0
     private var lastHapticIndex = -1
@@ -45,8 +48,8 @@ class CsgoAppReelOverlay(
     private val colorOrange = Color.parseColor("#F97316")
     private val colorGreen = Color.parseColor("#22C55E")
 
-    private val itemWidth = dpToPx(72).toFloat()
-    private val itemSpacing = dpToPx(14).toFloat()
+    private val itemWidth = dpToPx(60).toFloat()
+    private val itemSpacing = dpToPx(12).toFloat()
     private val stride = itemWidth + itemSpacing
 
     val windowParams: WindowManager.LayoutParams
@@ -63,27 +66,22 @@ class CsgoAppReelOverlay(
         }
 
         val metrics = context.resources.displayMetrics
-        val width = (metrics.widthPixels * 0.94).toInt().coerceAtMost(dpToPx(420))
-        val height = dpToPx(165)
+        val width = (metrics.widthPixels * 0.92).toInt().coerceAtMost(dpToPx(400))
+        val height = dpToPx(95)
 
         windowParams = WindowManager.LayoutParams(
             width, height, type,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = dpToPx(85)
+            gravity = Gravity.CENTER
+            y = -dpToPx(190) // Positioned gracefully above the top orange ✧ apex
         }
 
         textPaint.apply {
             color = Color.WHITE
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        }
-
-        needlePaint.apply {
-            color = colorOrange
-            style = Paint.Style.FILL
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
     }
 
@@ -110,7 +108,7 @@ class CsgoAppReelOverlay(
         if (drawable is BitmapDrawable && drawable.bitmap != null) {
             return drawable.bitmap
         }
-        val size = dpToPx(44).coerceAtLeast(1)
+        val size = dpToPx(38).coerceAtLeast(1)
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         drawable.setBounds(0, 0, canvas.width, canvas.height)
@@ -121,23 +119,18 @@ class CsgoAppReelOverlay(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val cx = width / 2f
-        val cy = height / 2f + dpToPx(6)
+        val cy = height / 2f - dpToPx(4)
 
-        // 1. Cybernetic Container Card
+        // 1. Sleek Glassmorphic Floating Dock
         val bgRect = RectF(0f, 0f, width.toFloat(), height.toFloat())
         paint.style = Paint.Style.FILL
-        paint.color = Color.parseColor("#E60F0F12")
+        paint.color = Color.parseColor("#EE121216")
         canvas.drawRoundRect(bgRect, dpToPx(16).toFloat(), dpToPx(16).toFloat(), paint)
 
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = dpToPx(1.5f).toFloat()
-        paint.color = Color.parseColor("#33F97316")
+        paint.color = Color.parseColor("#4DF97316")
         canvas.drawRoundRect(bgRect, dpToPx(16).toFloat(), dpToPx(16).toFloat(), paint)
-
-        // 2. Header: Δ CS:GO APP REEL ∇
-        textPaint.color = colorGreen
-        textPaint.textSize = dpToPx(11).toFloat()
-        canvas.drawText("Δ CS:GO APP REEL ∇", cx, dpToPx(20).toFloat(), textPaint)
 
         if (appItems.isEmpty()) {
             textPaint.color = Color.WHITE
@@ -145,7 +138,7 @@ class CsgoAppReelOverlay(
             return
         }
 
-        // 3. Draw Horizontal Tape Reel of Cards
+        // 2. Draw Horizontal Tape Reel
         val numItems = appItems.size
         val maxScroll = (numItems - 1) * stride
         scrollOffset = scrollOffset.coerceIn(0f, maxScroll)
@@ -156,11 +149,11 @@ class CsgoAppReelOverlay(
 
             val distFromCenter = abs(itemX - cx)
             val isCenter = distFromCenter < (stride / 2f)
-            val scale = (1.0f - (distFromCenter / (width * 0.7f)).coerceIn(0f, 0.35f))
-            val alpha = (255 * (1.0f - (distFromCenter / (width * 0.6f)).coerceIn(0f, 0.7f))).toInt()
+            val scale = (1.0f - (distFromCenter / (width * 0.75f)).coerceIn(0f, 0.3f))
+            val alpha = (255 * (1.0f - (distFromCenter / (width * 0.65f)).coerceIn(0f, 0.65f))).toInt()
 
             val curCardW = itemWidth * scale
-            val curCardH = dpToPx(76) * scale
+            val curCardH = dpToPx(62) * scale
             val cardRect = RectF(
                 itemX - curCardW / 2f,
                 cy - curCardH / 2f,
@@ -170,36 +163,36 @@ class CsgoAppReelOverlay(
 
             // Card Background
             paint.style = Paint.Style.FILL
-            paint.color = if (isCenter) Color.parseColor("#26262B") else Color.parseColor("#18181B")
+            paint.color = if (isCenter) Color.parseColor("#2C2C34") else Color.parseColor("#1C1C22")
             paint.alpha = alpha
             canvas.drawRoundRect(cardRect, dpToPx(10).toFloat(), dpToPx(10).toFloat(), paint)
 
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = if (isCenter) dpToPx(2).toFloat() else dpToPx(1).toFloat()
-            paint.color = if (isCenter) colorOrange else Color.parseColor("#33FFFFFF")
+            paint.strokeWidth = if (isCenter) dpToPx(1.5f).toFloat() else dpToPx(0.8f).toFloat()
+            paint.color = if (isCenter) colorOrange else Color.parseColor("#26FFFFFF")
             paint.alpha = alpha
             canvas.drawRoundRect(cardRect, dpToPx(10).toFloat(), dpToPx(10).toFloat(), paint)
 
             // App Icon
             val item = appItems[i]
             item.iconBitmap?.let { bmp ->
-                val iconSize = (dpToPx(34) * scale).toInt()
+                val iconSize = (dpToPx(28) * scale).toInt()
                 val iconRect = Rect(
                     (itemX - iconSize / 2).toInt(),
-                    (cy - curCardH / 2 + dpToPx(8) * scale).toInt(),
+                    (cy - curCardH / 2 + dpToPx(5) * scale).toInt(),
                     (itemX + iconSize / 2).toInt(),
-                    (cy - curCardH / 2 + dpToPx(8) * scale + iconSize).toInt()
+                    (cy - curCardH / 2 + dpToPx(5) * scale + iconSize).toInt()
                 )
                 paint.alpha = alpha
                 canvas.drawBitmap(bmp, null, iconRect, paint)
             }
 
             // App Label
-            textPaint.color = if (isCenter) Color.WHITE else Color.parseColor("#99FFFFFF")
+            textPaint.color = if (isCenter) Color.WHITE else Color.parseColor("#88FFFFFF")
             textPaint.alpha = alpha
-            textPaint.textSize = dpToPx(9.5f) * scale
-            val cleanName = item.label.take(8)
-            canvas.drawText(cleanName, itemX, cy + curCardH / 2 - dpToPx(6) * scale, textPaint)
+            textPaint.textSize = dpToPx(8.5f) * scale
+            val cleanName = item.label.take(7)
+            canvas.drawText(cleanName, itemX, cy + curCardH / 2 - dpToPx(4) * scale, textPaint)
         }
 
         // Current Selected Index
@@ -210,31 +203,13 @@ class CsgoAppReelOverlay(
         }
         selectedIndex = curCenterIdx
 
-        // 4. Center Needle Reticle (CS:GO Yellow/Orange Top & Bottom Pointers)
-        val needleSize = dpToPx(10).toFloat()
-        val topNeedle = Path().apply {
-            moveTo(cx, cy - dpToPx(44))
-            lineTo(cx - needleSize / 2, cy - dpToPx(44) - needleSize)
-            lineTo(cx + needleSize / 2, cy - dpToPx(44) - needleSize)
-            close()
-        }
-        canvas.drawPath(topNeedle, needlePaint)
-
-        val bottomNeedle = Path().apply {
-            moveTo(cx, cy + dpToPx(44))
-            lineTo(cx - needleSize / 2, cy + dpToPx(44) + needleSize)
-            lineTo(cx + needleSize / 2, cy + dpToPx(44) + needleSize)
-            close()
-        }
-        canvas.drawPath(bottomNeedle, needlePaint)
-
-        // 5. Selected App Name subtitle
+        // 3. Bottom Subtitle (Focused App Title)
         val selectedApp = appItems.getOrNull(selectedIndex)
         if (selectedApp != null) {
             textPaint.color = colorOrange
             textPaint.alpha = 255
-            textPaint.textSize = dpToPx(10).toFloat()
-            canvas.drawText(selectedApp.label.take(20), cx, height - dpToPx(8).toFloat(), textPaint)
+            textPaint.textSize = dpToPx(9.5f).toFloat()
+            canvas.drawText(selectedApp.label.take(24), cx, height - dpToPx(5).toFloat(), textPaint)
         }
     }
 
@@ -243,12 +218,26 @@ class CsgoAppReelOverlay(
             MotionEvent.ACTION_DOWN -> {
                 isDragging = true
                 lastTouchX = event.x
+                startTouchX = event.x
+                startTouchY = event.y
+                totalDragDistance = 0f
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 if (isDragging) {
                     val dx = event.x - lastTouchX
+                    val dy = event.y - startTouchY
+
+                    // Swipe Down Gesture -> Dismiss Reel
+                    if (dy > dpToPx(28) && abs(dy) > abs(event.x - startTouchX) * 1.5f) {
+                        isDragging = false
+                        onDismiss()
+                        return true
+                    }
+
+                    // Horizontal Scrolling
                     scrollOffset -= dx * 1.35f
+                    totalDragDistance += abs(dx)
                     lastTouchX = event.x
                     invalidate()
                     return true
@@ -256,15 +245,23 @@ class CsgoAppReelOverlay(
             }
             MotionEvent.ACTION_UP -> {
                 isDragging = false
-                val nearestOffset = selectedIndex * stride
-                scrollOffset = nearestOffset
-                invalidate()
-                launchSelectedApp()
+                val threshold = dpToPx(6).toFloat()
+
+                if (totalDragDistance < threshold) {
+                    // Tap event -> Launch tapped item!
+                    val cx = width / 2f
+                    val tappedIndex = ((event.x - cx + scrollOffset) / stride).roundToInt().coerceIn(0, appItems.size - 1)
+                    launchAppAtIndex(tappedIndex)
+                } else {
+                    // Drag ended -> Snap to closest item and STAY OPEN (do not launch!)
+                    val nearestOffset = selectedIndex * stride
+                    scrollOffset = nearestOffset
+                    invalidate()
+                }
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
                 isDragging = false
-                onDismiss()
             }
             MotionEvent.ACTION_OUTSIDE -> {
                 onDismiss()
@@ -273,8 +270,8 @@ class CsgoAppReelOverlay(
         return super.onTouchEvent(event)
     }
 
-    private fun launchSelectedApp() {
-        val item = appItems.getOrNull(selectedIndex)
+    private fun launchAppAtIndex(index: Int) {
+        val item = appItems.getOrNull(index)
         if (item != null) {
             try {
                 val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
