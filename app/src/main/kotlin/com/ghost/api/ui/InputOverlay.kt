@@ -61,7 +61,7 @@ class InputOverlay(
         // Main Frame size (expanded for 6-point radial hexagon/diamond)
         layoutParams = LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(380) 
+            dpToPx(440) 
         ).apply {
             gravity = Gravity.CENTER
         }
@@ -117,19 +117,19 @@ class InputOverlay(
             setOnTouchListener { v, event ->
                 val threshold = 50f
                 when (event.action) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
+                    MotionEvent.ACTION_DOWN -> {
                         startX = event.rawX
                         startY = event.rawY
                         isSwiping = false
                         wasLongClicked = false
                         v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(100).start()
                     }
-                    android.view.MotionEvent.ACTION_MOVE -> {
+                    MotionEvent.ACTION_MOVE -> {
                         if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
                             isSwiping = true
                         }
                     }
-                    android.view.MotionEvent.ACTION_UP -> {
+                    MotionEvent.ACTION_UP -> {
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
                         if (wasLongClicked) {
                             wasLongClicked = false // consume the up event
@@ -141,7 +141,7 @@ class InputOverlay(
                             v.performClick()
                         }
                     }
-                    android.view.MotionEvent.ACTION_CANCEL -> {
+                    MotionEvent.ACTION_CANCEL -> {
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
                         wasLongClicked = false
                     }
@@ -228,9 +228,9 @@ class InputOverlay(
     private fun addRadialButtons() {
         val horizontalOffset = dpToPx(90)
         val verticalOffset = dpToPx(105)
-        val apexVerticalOffset = dpToPx(148)
+        val apexVerticalOffset = dpToPx(182) // Pointy rocket apex tips
 
-        // 1. Top Apex Vertex: Orange (Warframe Spiral Gearwheel Launcher)
+        // 1. Top Apex Vertex: Orange (CS:GO Tape Reel Launcher)
         setupTopOrangeButton(0f, -apexVerticalOffset.toFloat())
 
         // 2. Bottom Apex Vertex: Cyan (4-Way Media & Sticky Scratchpad Puck)
@@ -250,8 +250,8 @@ class InputOverlay(
     private fun setupTopOrangeButton(tx: Float, ty: Float) {
         val btnSize = dpToPx(48)
         val btn = TextView(context).apply {
-            text = "⚙"
-            textSize = 22f
+            text = "✧"
+            textSize = 24f
             setTextColor(colorOrange)
             gravity = Gravity.CENTER
             background = createCircleBackground(colorSurface)
@@ -264,16 +264,16 @@ class InputOverlay(
 
             setOnClickListener {
                 hapticPulse()
-                com.ghost.api.GemmaService.instance?.overlayManager?.showGearWheel()
+                com.ghost.api.GemmaService.instance?.overlayManager?.showAppReel()
             }
         }
         addView(btn)
     }
 
     private fun setupBottomCyanPuck(tx: Float, ty: Float) {
-        val btnSize = dpToPx(52)
+        val btnSize = dpToPx(48)
         val btn = TextView(context).apply {
-            text = "◎"
+            text = "✧"
             textSize = 24f
             setTextColor(colorCyan)
             gravity = Gravity.CENTER

@@ -414,7 +414,7 @@ class OverlayManager(private val context: Context) {
     fun isVisible(): Boolean = isShowing
 
     private var scratchpadOverlay: ScratchpadOverlay? = null
-    private var gearWheelOverlay: WarframeGearWheelOverlay? = null
+    private var appReelOverlay: CsgoAppReelOverlay? = null
 
     fun showScratchpad() {
         if (!canDrawOverlay()) return
@@ -447,34 +447,34 @@ class OverlayManager(private val context: Context) {
         }
     }
 
-    fun showGearWheel() {
+    fun showAppReel() {
         if (!canDrawOverlay()) return
-        if (gearWheelOverlay != null) {
-            hideGearWheel()
+        if (appReelOverlay != null) {
+            hideAppReel()
             return
         }
         try {
             val wm = windowManager ?: return
-            gearWheelOverlay = WarframeGearWheelOverlay(
+            appReelOverlay = CsgoAppReelOverlay(
                 context = context,
                 windowManager = wm,
-                onDismiss = { hideGearWheel() }
+                onDismiss = { hideAppReel() }
             )
-            wm.addView(gearWheelOverlay, gearWheelOverlay?.windowParams)
-            Timber.i("GearWheel overlay opened")
+            wm.addView(appReelOverlay, appReelOverlay?.windowParams)
+            Timber.i("CS:GO App Reel overlay opened")
         } catch (e: Exception) {
-            Timber.e(e, "Failed to show GearWheel overlay")
+            Timber.e(e, "Failed to show App Reel overlay")
         }
     }
 
-    fun hideGearWheel() {
-        gearWheelOverlay?.let {
+    fun hideAppReel() {
+        appReelOverlay?.let {
             try {
                 windowManager?.removeView(it)
             } catch (e: Exception) {
-                Timber.w(e, "Failed to remove GearWheel overlay")
+                Timber.w(e, "Failed to remove App Reel overlay")
             }
-            gearWheelOverlay = null
+            appReelOverlay = null
         }
     }
 }
