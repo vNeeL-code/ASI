@@ -369,34 +369,54 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             Toast.makeText(this, if (checked) "PiP overlays on" else "PiP overlays off", Toast.LENGTH_SHORT).show()
         }
 
-        // Diary Cadence Selector (1h / 3h / 12h / Off)
+        // === Divider ===
+        container.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1
+            ).apply { topMargin = 16; bottomMargin = 16 }
+            setBackgroundColor(dividerColor)
+        })
+
+        // === SECTION: Autonomous Diary Cadence ===
+        container.addView(TextView(this).apply {
+            text = "Autonomous Diary Cadence"
+            textSize = 12f
+            setTextColor(dimTextColor)
+            letterSpacing = 0.08f
+            setPadding(0, 0, 0, 12)
+        })
+
         val currentCadence = prefs.getString(Constants.PREF_DIARY_CADENCE, "12") ?: "12"
-        val cadenceLabel = when (currentCadence) {
-            "1" -> "1 Hour"
-            "3" -> "3 Hours"
-            "12" -> "12 Hours (Noon/Midnight)"
-            "OFF" -> "Off"
-            else -> "12 Hours"
+        val diaryRadioGroup = RadioGroup(this).apply {
+            orientation = RadioGroup.HORIZONTAL
         }
-        addToggleRow("Autonomous Diary: $cadenceLabel", currentCadence != "OFF") { checked ->
-            val options = arrayOf("1 Hour (High Frequency)", "3 Hours (Dynamic Daily)", "12 Hours (Noon & Midnight)", "Off (Manual Only)")
-            val values = arrayOf("1", "3", "12", "OFF")
-            val currentIdx = values.indexOf(prefs.getString(Constants.PREF_DIARY_CADENCE, "12")).let { if (it < 0) 2 else it }
+        val cadences = listOf("1H" to "1", "3H" to "3", "12H" to "12", "OFF" to "OFF")
+        for ((label, value) in cadences) {
+            diaryRadioGroup.addView(RadioButton(this).apply {
+                text = label
+                textSize = 12f
+                setTextColor(Color.WHITE)
+                buttonTintList = ColorStateList.valueOf(accentColor)
+                isChecked = (value == currentCadence)
+                id = View.generateViewId()
+                setPadding(0, 0, 24, 0)
+            })
+        }
+        diaryRadioGroup.setOnCheckedChangeListener { group, checkedId ->
+            val checkedRb = group.findViewById<RadioButton>(checkedId)
+            val selectedLabel = checkedRb?.text?.toString() ?: "12H"
+            val selectedValue = cadences.firstOrNull { it.first == selectedLabel }?.second ?: "12"
             
-            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
-                .setTitle("Select Diary Cadence")
-                .setSingleChoiceItems(options, currentIdx) { d, which ->
-                    val selectedValue = values[which]
-                    prefs.edit()
-                        .putString(Constants.PREF_DIARY_CADENCE, selectedValue)
-                        .putBoolean(Constants.PREF_AUTONOMOUS_DIARY, selectedValue != "OFF")
-                        .apply()
-                    com.ghost.api.workers.DiaryWorker.schedule(this)
-                    Toast.makeText(this, "Diary set to ${options[which]}", Toast.LENGTH_SHORT).show()
-                    d.dismiss()
-                }
-                .show()
+            prefs.edit()
+                .putString(Constants.PREF_DIARY_CADENCE, selectedValue)
+                .putBoolean(Constants.PREF_AUTONOMOUS_DIARY, selectedValue != "OFF")
+                .apply()
+            
+            com.ghost.api.workers.DiaryWorker.schedule(this)
+            val toastMsg = if (selectedValue == "OFF") "Autonomous diary disabled" else "Diary set to $selectedLabel"
+            Toast.makeText(this, toastMsg, Toast.LENGTH_SHORT).show()
         }
+        container.addView(diaryRadioGroup)
 
         // Mute TTS toggle (momentary — stops current speech)
         addToggleRow("Mute TTS", false) { checked ->
