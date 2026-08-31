@@ -412,4 +412,69 @@ class OverlayManager(private val context: Context) {
     }
 
     fun isVisible(): Boolean = isShowing
+
+    private var scratchpadOverlay: ScratchpadOverlay? = null
+    private var gearWheelOverlay: WarframeGearWheelOverlay? = null
+
+    fun showScratchpad() {
+        if (!canDrawOverlay()) return
+        if (scratchpadOverlay != null) {
+            hideScratchpad()
+            return
+        }
+        try {
+            val wm = windowManager ?: return
+            scratchpadOverlay = ScratchpadOverlay(
+                context = context,
+                windowManager = wm,
+                onDismiss = { hideScratchpad() }
+            )
+            wm.addView(scratchpadOverlay, scratchpadOverlay?.windowParams)
+            Timber.i("Scratchpad overlay opened")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to show Scratchpad overlay")
+        }
+    }
+
+    fun hideScratchpad() {
+        scratchpadOverlay?.let {
+            try {
+                windowManager?.removeView(it)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to remove Scratchpad overlay")
+            }
+            scratchpadOverlay = null
+        }
+    }
+
+    fun showGearWheel() {
+        if (!canDrawOverlay()) return
+        if (gearWheelOverlay != null) {
+            hideGearWheel()
+            return
+        }
+        try {
+            val wm = windowManager ?: return
+            gearWheelOverlay = WarframeGearWheelOverlay(
+                context = context,
+                windowManager = wm,
+                onDismiss = { hideGearWheel() }
+            )
+            wm.addView(gearWheelOverlay, gearWheelOverlay?.windowParams)
+            Timber.i("GearWheel overlay opened")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to show GearWheel overlay")
+        }
+    }
+
+    fun hideGearWheel() {
+        gearWheelOverlay?.let {
+            try {
+                windowManager?.removeView(it)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to remove GearWheel overlay")
+            }
+            gearWheelOverlay = null
+        }
+    }
 }

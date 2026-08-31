@@ -298,7 +298,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     private lateinit var termuxAdbToolSet: TermuxAdbToolSet // Power User Bridge
     private lateinit var uiMacroToolSet: com.ghost.api.hardware.UiMacroToolSet // UI Automation Bridge
     private lateinit var shakeDetector: ShakeDetector // Shake to summon
-    private lateinit var overlayManager: OverlayManager // Floating input
+    lateinit var overlayManager: OverlayManager // Floating input
     private lateinit var audioRecorder: AudioRecorder // Hearing
 
 

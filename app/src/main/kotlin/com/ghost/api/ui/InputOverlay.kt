@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -50,15 +51,17 @@ class InputOverlay(
     private val colorGRed = Color.parseColor("#EA4335")
     private val colorGYellow = Color.parseColor("#FBBC05")
     private val colorGGreen = Color.parseColor("#34A853")
+    private val colorOrange = Color.parseColor("#F97316")
+    private val colorCyan = Color.parseColor("#00F0FF")
 
     private val prefs = context.getSharedPreferences("Gemma_RadialPrefs", Context.MODE_PRIVATE)
     private var appPickerLayout: View? = null
 
     init {
-        // Main Frame size (expanded for radial hexagon)
+        // Main Frame size (expanded for 6-point radial hexagon/diamond)
         layoutParams = LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(280) 
+            dpToPx(380) 
         ).apply {
             gravity = Gravity.CENTER
         }
@@ -224,9 +227,16 @@ class InputOverlay(
 
     private fun addRadialButtons() {
         val horizontalOffset = dpToPx(90)
-        val verticalOffset = dpToPx(110)
+        val verticalOffset = dpToPx(105)
+        val apexVerticalOffset = dpToPx(148)
 
-        // Add the 4 Google-colored buttons in a hexagon pattern around the center bar
+        // 1. Top Apex Vertex: Orange (Warframe Spiral Gearwheel Launcher)
+        setupTopOrangeButton(0f, -apexVerticalOffset.toFloat())
+
+        // 2. Bottom Apex Vertex: Cyan (4-Way Media & Sticky Scratchpad Puck)
+        setupBottomCyanPuck(0f, apexVerticalOffset.toFloat())
+
+        // 3. Four Diagonal Google Nodes
         setupRadialButton(colorGRed, -horizontalOffset.toFloat(), -verticalOffset.toFloat(), "Red (Camera)")
         setupRadialButton(colorGBlue, horizontalOffset.toFloat(), -verticalOffset.toFloat(), "Blue (Search)")
         setupRadialButton(colorGGreen, -horizontalOffset.toFloat(), verticalOffset.toFloat(), "Green (Diary)")
@@ -235,6 +245,119 @@ class InputOverlay(
         // Ensure parent FrameLayout doesn't block children
         isClickable = false
         isFocusable = false
+    }
+
+    private fun setupTopOrangeButton(tx: Float, ty: Float) {
+        val btnSize = dpToPx(48)
+        val btn = TextView(context).apply {
+            text = "⚙"
+            textSize = 22f
+            setTextColor(colorOrange)
+            gravity = Gravity.CENTER
+            background = createCircleBackground(colorSurface)
+            elevation = dpToPx(6).toFloat()
+            translationX = tx
+            translationY = ty
+            layoutParams = LayoutParams(btnSize, btnSize).apply {
+                gravity = Gravity.CENTER
+            }
+
+            setOnClickListener {
+                hapticPulse()
+                com.ghost.api.GemmaService.instance?.overlayManager?.showGearWheel()
+            }
+        }
+        addView(btn)
+    }
+
+    private fun setupBottomCyanPuck(tx: Float, ty: Float) {
+        val btnSize = dpToPx(52)
+        val btn = TextView(context).apply {
+            text = "◎"
+            textSize = 24f
+            setTextColor(colorCyan)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(colorSurface)
+                setStroke(dpToPx(2), colorCyan)
+            }
+            elevation = dpToPx(8).toFloat()
+            translationX = tx
+            translationY = ty
+            layoutParams = LayoutParams(btnSize, btnSize).apply {
+                gravity = Gravity.CENTER
+            }
+
+            var startX = 0f
+            var startY = 0f
+            var isSwiping = false
+
+            setOnTouchListener { v, event ->
+                val threshold = 35f
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startX = event.rawX
+                        startY = event.rawY
+                        isSwiping = false
+                        v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(100).start()
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
+                            isSwiping = true
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+                        if (isSwiping) {
+                            val dx = event.rawX - startX
+                            val dy = event.rawY - startY
+                            if (Math.abs(dx) > Math.abs(dy)) {
+                                if (dx > 0) {
+                                    // Right -> Next Track
+                                    hapticPulse()
+                                    audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
+                                    audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
+                                    Toast.makeText(context, "⏭ Next Track", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    // Left -> Previous Track
+                                    hapticPulse()
+                                    audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
+                                    audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
+                                    Toast.makeText(context, "⏮ Previous Track", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                if (dy > 0) {
+                                    // Down -> Play/Pause
+                                    hapticPulse()
+                                    audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+                                    audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+                                    Toast.makeText(context, "⏯ Play / Pause", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    // Up -> Summon Scratchpad PiP
+                                    hapticPulse()
+                                    com.ghost.api.GemmaService.instance?.overlayManager?.showScratchpad()
+                                }
+                            }
+                        } else {
+                            // Tap -> Summon / Toggle Scratchpad PiP
+                            hapticPulse()
+                            com.ghost.api.GemmaService.instance?.overlayManager?.showScratchpad()
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+        addView(btn)
     }
 
     private fun setupRadialButton(color: Int, tx: Float, ty: Float, label: String) {
