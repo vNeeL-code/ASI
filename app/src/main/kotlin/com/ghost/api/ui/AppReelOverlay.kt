@@ -313,6 +313,29 @@ class AppReelOverlay(
         return super.onTouchEvent(event)
     }
 
+    fun scrubRelative(deltaX: Float) {
+        val numItems = appItems.size
+        if (numItems == 0) return
+        val maxScroll = (numItems - 1) * stride
+        scrollOffset = (scrollOffset - deltaX * 1.35f).coerceIn(0f, maxScroll)
+        invalidate()
+    }
+
+    fun stepDirection(step: Int) {
+        val numItems = appItems.size
+        if (numItems == 0) return
+        val maxScroll = (numItems - 1) * stride
+        val newIdx = (selectedIndex + step).coerceIn(0, numItems - 1)
+        scrollOffset = (newIdx * stride).coerceIn(0f, maxScroll)
+        invalidate()
+    }
+
+    fun launchCurrentlySelected(): Boolean {
+        if (appItems.isEmpty()) return false
+        launchAppAtIndex(selectedIndex)
+        return true
+    }
+
     private fun launchAppAtIndex(index: Int) {
         val item = appItems.getOrNull(index)
         if (item != null) {

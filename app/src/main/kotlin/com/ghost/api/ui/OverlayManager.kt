@@ -479,4 +479,18 @@ class OverlayManager(private val context: Context) {
             appReelOverlay = null
         }
     }
+
+    fun isAppReelVisible(): Boolean = appReelOverlay != null
+
+    fun scrubAppReel(deltaX: Float) {
+        appReelOverlay?.scrubRelative(deltaX)
+    }
+
+    fun stepAppReel(step: Int) {
+        appReelOverlay?.stepDirection(step)
+    }
+
+    fun launchAppReelSelected(): Boolean {
+        return appReelOverlay?.launchCurrentlySelected() ?: false
+    }
 }

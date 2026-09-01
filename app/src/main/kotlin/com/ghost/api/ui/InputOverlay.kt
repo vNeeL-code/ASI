@@ -249,6 +249,29 @@ class InputOverlay(
         isFocusable = false
     }
 
+    private fun applyPuckWiggle(view: View, baseTx: Float, baseTy: Float, startX: Float, startY: Float, rawX: Float, rawY: Float) {
+        val rawDx = rawX - startX
+        val rawDy = rawY - startY
+        val dist = Math.hypot(rawDx.toDouble(), rawDy.toDouble()).toFloat()
+        if (dist == 0f) return
+        val maxRadius = dpToPx(24).toFloat()
+        val clampedDist = Math.min(dist * 0.5f, maxRadius)
+        val factor = clampedDist / dist
+        view.translationX = baseTx + (rawDx * factor)
+        view.translationY = baseTy + (rawDy * factor)
+    }
+
+    private fun resetPuckSpring(view: View, baseTx: Float, baseTy: Float) {
+        view.animate()
+            .translationX(baseTx)
+            .translationY(baseTy)
+            .scaleX(1.0f)
+            .scaleY(1.0f)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.8f))
+            .setDuration(220)
+            .start()
+    }
+
     private fun setupTopOrangeButton(tx: Float, ty: Float) {
         val btnSize = dpToPx(48)
         val btn = TextView(context).apply {
@@ -266,58 +289,77 @@ class InputOverlay(
 
             var startX = 0f
             var startY = 0f
+            var lastRawX = 0f
             var isSwiping = false
-            var wasLongClicked = false
-
-            // Hold to expand 3-slot custom binding sub-menu
-            setOnLongClickListener {
-                if (!isSwiping) {
-                    wasLongClicked = true
-                    hapticPulse()
-                    expandSubMenu(this, tx, ty, "Orange (Apps)")
-                }
-                true
-            }
 
             setOnTouchListener { v, event ->
-                val threshold = 35f
+                val threshold = dpToPx(18).toFloat()
+                val overlayMgr = com.ghost.api.GemmaService.instance?.overlayManager
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         startX = event.rawX
                         startY = event.rawY
+                        lastRawX = event.rawX
                         isSwiping = false
-                        wasLongClicked = false
-                        v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(100).start()
+                        v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(100).start()
+                        true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
+                        applyPuckWiggle(v, tx, ty, startX, startY, event.rawX, event.rawY)
+                        val totalDist = Math.hypot((event.rawX - startX).toDouble(), (event.rawY - startY).toDouble()).toFloat()
+                        if (totalDist > threshold) {
                             isSwiping = true
                         }
+
+                        // Live remote joystick scrubbing on horizontal thumb wiggle when Reel is visible
+                        if (overlayMgr?.isAppReelVisible() == true) {
+                            val moveDx = event.rawX - lastRawX
+                            if (Math.abs(moveDx) > 1.5f) {
+                                overlayMgr.scrubAppReel(moveDx)
+                            }
+                        }
+                        lastRawX = event.rawX
+                        true
                     }
                     MotionEvent.ACTION_UP -> {
-                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
-                        if (wasLongClicked) {
-                            wasLongClicked = false
-                        } else if (isSwiping) {
-                            val dx = event.rawX - startX
-                            val dy = event.rawY - startY
-                            val direction = if (Math.abs(dx) > Math.abs(dy)) {
-                                if (dx > 0) "RIGHT" else "LEFT"
-                            } else {
-                                if (dy > 0) "DOWN" else "UP"
+                        resetPuckSpring(v, tx, ty)
+                        val dx = event.rawX - startX
+                        val dy = event.rawY - startY
+                        val totalDist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+
+                        if (totalDist >= threshold) {
+                            if (Math.abs(dy) > Math.abs(dx)) {
+                                if (dy > 0) {
+                                    // Pull DOWN -> Summon / Dismiss App Reel
+                                    hapticPulse()
+                                    if (overlayMgr?.isAppReelVisible() == true) {
+                                        overlayMgr.hideAppReel()
+                                    } else {
+                                        overlayMgr?.showAppReel()
+                                    }
+                                } else {
+                                    // Push UP -> Remote Confirm / Launch selected item in App Reel
+                                    hapticPulse()
+                                    if (overlayMgr?.isAppReelVisible() == true) {
+                                        overlayMgr.launchAppReelSelected()
+                                    } else {
+                                        // If Reel wasn't open, open it
+                                        overlayMgr?.showAppReel()
+                                    }
+                                }
                             }
-                            launchBoundApp("Orange (Apps)", direction)
+                            // If horizontal drag (LEFT / RIGHT) -> already live-scrubbed, release stays open without firing!
                         } else {
-                            // Tap -> Neutral / Settings
-                            launchBoundApp("Orange (Apps)", "TAP")
+                            // Tap / neutral release -> Safe zero state (no auto-launch)
                         }
+                        true
                     }
                     MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
-                        wasLongClicked = false
+                        resetPuckSpring(v, tx, ty)
+                        true
                     }
+                    else -> false
                 }
-                false
             }
         }
         addView(btn)
@@ -353,13 +395,14 @@ class InputOverlay(
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
+                        applyPuckWiggle(v, tx, ty, startX, startY, event.rawX, event.rawY)
                         if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
                             isSwiping = true
                         }
                         true
                     }
                     MotionEvent.ACTION_UP -> {
-                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        resetPuckSpring(v, tx, ty)
                         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
                         if (isSwiping) {
                             val dx = event.rawX - startX
@@ -399,7 +442,7 @@ class InputOverlay(
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        resetPuckSpring(v, tx, ty)
                         true
                     }
                     else -> false
@@ -450,12 +493,13 @@ class InputOverlay(
                         v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(100).start()
                     }
                     android.view.MotionEvent.ACTION_MOVE -> {
+                        applyPuckWiggle(v, tx, ty, startX, startY, event.rawX, event.rawY)
                         if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
                             isSwiping = true
                         }
                     }
                     android.view.MotionEvent.ACTION_UP -> {
-                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        resetPuckSpring(v, tx, ty)
                         if (wasLongClicked) {
                             wasLongClicked = false // consume the up event
                         } else if (isSwiping) {
@@ -473,7 +517,7 @@ class InputOverlay(
                         }
                     }
                     android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        resetPuckSpring(v, tx, ty)
                         wasLongClicked = false
                     }
                 }
