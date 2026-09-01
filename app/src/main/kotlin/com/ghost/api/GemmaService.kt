@@ -185,10 +185,6 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                     }
                 }
             }
-            "com.ghost.api.ACTION_DIARY_CYCLE" -> {
-                Timber.i("Service received ACTION_DIARY_CYCLE intent")
-                startDiaryCycle(null)
-            }
             "com.ghost.api.ACTION_SHOW_OVERLAY" -> {
                 Timber.i("Received ACTION_SHOW_OVERLAY")
                 // Robust Init: If overlay manager isn't ready, try to init it immediately
@@ -316,6 +312,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         instance = this
         super.onCreate()
         
+        cleanupLegacyAlarms()
         setupDiaryWorker()
 
         // Watchdog check: If we crashed during last initialization, increment count
@@ -1439,6 +1436,30 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     fun showPipUrl(title: String, url: String, durationMs: Long = 10000) {
         if (::overlayManager.isInitialized) {
             overlayManager.showPipUrl(title, url, durationMs)
+        }
+    }
+
+    fun cleanupLegacyAlarms() {
+        try {
+            val am = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return
+            val legacyActions = listOf(
+                "com.ghost.api.ACTION_DIARY_CYCLE",
+                "com.ghost.api.ACTION_CRON_PROMPT"
+            )
+            for (action in legacyActions) {
+                val intent = Intent(action).setPackage(packageName)
+                val pi = android.app.PendingIntent.getBroadcast(
+                    this, 200, intent,
+                    android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                if (pi != null) {
+                    am.cancel(pi)
+                    pi.cancel()
+                    Timber.i("🧹 Cleaned up legacy AlarmManager intent: $action")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to cleanup legacy alarms")
         }
     }
 
