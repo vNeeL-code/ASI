@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.util.Locale
 import kotlin.math.*
 
 /**
@@ -57,10 +58,10 @@ class AppReelOverlay(
                         } catch (e: Exception) {
                             null
                         }
-                    }
+                    }.sortedBy { it.label.lowercase(Locale.getDefault()) }
                     cachedApps = items
                     isLoaded = true
-                    Timber.i("AppListCache preloaded ${items.size} apps")
+                    Timber.i("AppListCache preloaded ${items.size} apps (A-Z sorted)")
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to preload AppListCache")
                 }
@@ -146,13 +147,18 @@ class AppReelOverlay(
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
             val resolveInfos = pm.queryIntentActivities(intent, 0)
-            for (info in resolveInfos) {
-                val label = info.loadLabel(pm).toString()
-                val pkg = info.activityInfo.packageName
-                val iconDrawable = info.loadIcon(pm)
-                val bmp = drawableToBitmap(context, iconDrawable)
-                appItems.add(ReelAppItem(label, pkg, bmp))
-            }
+            val items = resolveInfos.mapNotNull { info ->
+                try {
+                    val label = info.loadLabel(pm).toString()
+                    val pkg = info.activityInfo.packageName
+                    val iconDrawable = info.loadIcon(pm)
+                    val bmp = drawableToBitmap(context, iconDrawable)
+                    ReelAppItem(label, pkg, bmp)
+                } catch (e: Exception) {
+                    null
+                }
+            }.sortedBy { it.label.lowercase(Locale.getDefault()) }
+            appItems.addAll(items)
         } catch (e: Exception) {
             Timber.e(e, "Failed to load synchronous fallback apps")
         }
