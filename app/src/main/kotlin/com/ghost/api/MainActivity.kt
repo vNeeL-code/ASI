@@ -418,12 +418,15 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         }
         container.addView(diaryRadioGroup)
 
-        // Mute TTS toggle (momentary — stops current speech)
-        addToggleRow("Mute TTS", false) { checked ->
-            if (checked) {
+        // Voice Output (TTS) persistent toggle
+        val ttsActive = prefs.getBoolean(Constants.PREF_TTS_ENABLED, true)
+        addToggleRow("Voice Output (TTS)", ttsActive) { checked ->
+            prefs.edit().putBoolean(Constants.PREF_TTS_ENABLED, checked).apply()
+            GemmaService.instance?.ttsManager?.isTtsEnabled = checked
+            if (!checked) {
                 GemmaService.instance?.ttsManager?.stop()
             }
-            Toast.makeText(this, if (checked) "TTS muted" else "TTS unmuted", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (checked) "Voice output enabled" else "Voice output muted (media won't pause)", Toast.LENGTH_SHORT).show()
         }
 
         // === Divider ===

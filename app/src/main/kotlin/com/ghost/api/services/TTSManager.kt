@@ -56,6 +56,19 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
     var respectScreenLock = true
     var privateAudioOnly = false // Only speak if headphones/bluetooth connected
 
+    var isTtsEnabled: Boolean
+        get() {
+            val prefs = context.getSharedPreferences(com.ghost.api.Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean(com.ghost.api.Constants.PREF_TTS_ENABLED, true)
+        }
+        set(value) {
+            val prefs = context.getSharedPreferences(com.ghost.api.Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putBoolean(com.ghost.api.Constants.PREF_TTS_ENABLED, value).apply()
+            if (!value) {
+                stop()
+            }
+        }
+
     data class DeferredSpeech(
         val text: String,
         val priority: Priority = Priority.NORMAL,
@@ -397,6 +410,10 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
      * @return true if speech was initiated, false if deferred or suppressed
      */
     fun smartSpeak(text: String, priority: Priority = Priority.NORMAL, customUtteranceId: String? = null): Boolean {
+        if (!isTtsEnabled) {
+            Timber.d("TTS: Speech skipped — Voice output is disabled in settings")
+            return false
+        }
         val cleanText = cleanMarkdownForSpeech(text)
         if (!isReady || cleanText.isBlank()) return false
 
