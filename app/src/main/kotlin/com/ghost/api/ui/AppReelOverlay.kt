@@ -125,7 +125,7 @@ class AppReelOverlay(
 
         windowParams = WindowManager.LayoutParams(
             width, height, type,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
@@ -305,9 +305,6 @@ class AppReelOverlay(
             }
             MotionEvent.ACTION_CANCEL -> {
                 isDragging = false
-            }
-            MotionEvent.ACTION_OUTSIDE -> {
-                onDismiss()
             }
         }
         return super.onTouchEvent(event)

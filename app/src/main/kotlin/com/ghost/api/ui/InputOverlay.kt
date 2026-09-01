@@ -483,7 +483,7 @@ class InputOverlay(
             }
 
             setOnTouchListener { v, event ->
-                val threshold = 50f
+                val deadzoneThreshold = dpToPx(18).toFloat()
                 when (event.action) {
                     android.view.MotionEvent.ACTION_DOWN -> {
                         startX = event.rawX
@@ -494,17 +494,21 @@ class InputOverlay(
                     }
                     android.view.MotionEvent.ACTION_MOVE -> {
                         applyPuckWiggle(v, tx, ty, startX, startY, event.rawX, event.rawY)
-                        if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
+                        val totalDist = Math.hypot((event.rawX - startX).toDouble(), (event.rawY - startY).toDouble()).toFloat()
+                        if (totalDist > deadzoneThreshold) {
                             isSwiping = true
                         }
                     }
                     android.view.MotionEvent.ACTION_UP -> {
                         resetPuckSpring(v, tx, ty)
+                        val dx = event.rawX - startX
+                        val dy = event.rawY - startY
+                        val totalDist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+
                         if (wasLongClicked) {
-                            wasLongClicked = false // consume the up event
-                        } else if (isSwiping) {
-                            val dx = event.rawX - startX
-                            val dy = event.rawY - startY
+                            wasLongClicked = false
+                        } else if (totalDist >= deadzoneThreshold) {
+                            // Intentional directional flick outside deadzone -> launch vector gate
                             val direction = if (Math.abs(dx) > Math.abs(dy)) {
                                 if (dx > 0) "RIGHT" else "LEFT"
                             } else {
@@ -512,8 +516,8 @@ class InputOverlay(
                             }
                             launchBoundApp(label, direction)
                         } else {
-                            // Normal tap defaults to UP direction
-                            launchBoundApp(label, "UP")
+                            // Released in center deadzone / neutral -> Zero action, spring back safely!
+                            Timber.d("Puck $label released in deadzone ($totalDist < $deadzoneThreshold) - neutral cancel")
                         }
                     }
                     android.view.MotionEvent.ACTION_CANCEL -> {
