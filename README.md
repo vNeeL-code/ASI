@@ -1,7 +1,7 @@
 # ✧ GHOSt - Gemma Harness Open Source thingamajig
 
 > *"So, Epsilon, ChurchGPT, Leonard part six or whatever your name is... Are you a ghost this time, or an artificial intelligence thingamajig? I ,personally prefer the ghost explanation. Feels more grounded to me"*
-> — Sgt. Sarge, Red vs. Blue
+> - Sgt. Sarge, Red vs. Blue
 
 
 [![ASI Demo](https://img.youtube.com/vi/jB62dlLavSY/0.jpg)](https://youtu.be/jB62dlLavSY?si=TMZG86o1KkjuBXtw)
@@ -13,7 +13,7 @@
 
 ### What is even a ✧ GHOSt?
 
-✧ GHOSt is not an enterprise companion chatbot. **Gemma Hosting Open Source thingamajig** is a privacy first, personal AI assistant + launcher interface (similar to Niagara and others) for users who want a capable, personal Android UX assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
+✧ GHOSt is not an enterprise companion chatbot. **Gemma Hosting Open Source thingamajig** is a privacy first, personal AI assistant + launcher interface (similar to Niagara and others) for users who want a capable, personal Android UX assistant that provides standard system integration with advanced, localized agentic capabilities - running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
 
 While using multistep agentic actions, with web scraping, data retrieval and hardware tools and apps use.
 
