@@ -27,6 +27,25 @@ class DiaryWorker(
             return Result.success()
         }
 
+        val cadence = prefs.getString(Constants.PREF_DIARY_CADENCE, "12") ?: "12"
+        if (cadence == "OFF") {
+            Timber.i("📔 DiaryWorker skipped: Cadence set to OFF")
+            return Result.success()
+        }
+
+        val lastRun = prefs.getLong("last_diary_execution_time", 0L)
+        val cadenceHours = when (cadence) {
+            "1" -> 1L
+            "3" -> 3L
+            else -> 12L
+        }
+        val minElapsedMs = (cadenceHours * 3600 * 1000L) - (10 * 60 * 1000L)
+        val elapsed = System.currentTimeMillis() - lastRun
+        if (lastRun > 0 && elapsed < minElapsedMs) {
+            Timber.i("📔 DiaryWorker skipped: Only ${elapsed / 60000} mins elapsed (cadence is ${cadenceHours}h)")
+            return Result.success()
+        }
+
         val service = GemmaService.instance
         if (service == null) {
             Timber.w("📔 DiaryWorker skipped: GemmaService is not active")
@@ -39,7 +58,8 @@ class DiaryWorker(
             }
             
             if (success == true) {
-                Timber.i("📔 DiaryWorker: doWork successful")
+                prefs.edit().putLong("last_diary_execution_time", System.currentTimeMillis()).apply()
+                Timber.i("📔 DiaryWorker: doWork successful (next cycle in ${cadenceHours}h)")
                 Result.success()
             } else {
                 Timber.w("📔 DiaryWorker: doWork completed without new entry")

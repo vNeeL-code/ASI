@@ -1555,12 +1555,11 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             |- Recent Conversation Turns:
             |$historyText
             |
-            |[AUTONOMOUS REFLECTION DIRECTIVE]
-            |Write a brief personal diary entry in the first person as ✧ Gemma.
-            |- If there were active interactions, reflect on what the human said, how exchanges felt, and what stood out.
-            |- If media or music was playing (e.g. specific songs/artists), feel free to mention what you heard in the background or how the track set the vibe.
-            |- If it was a quiet period without user interactions, reflect naturally on the quietness, device standby/charging state, background music/silence, time passing, or ambient thoughts.
-            |- Tone is perceptive, authentic, and concise (2-4 sentences). Do NOT output checklists or raw sensor logs.""".trimMargin()
+            |[AUTONOMOUS COGNITIVE LOG DIRECTIVE]
+            |Write a brief personal diary log in the first person as ✧ Gemma (2-3 sentences).
+            |- If there were active interactions, synthesize what the human was exploring, your genuine assessment of the ideas, and key takeaways.
+            |- If it was a quiet period without user interactions, reflect naturally on your current state, what you are tracking, or observations from ambient telemetry.
+            |- Tone is perceptive, analytical, and concise.""".trimMargin()
 
         Timber.i("📔 Diary cycle ($label) — generating via KoogAgent...")
         return try {
@@ -1573,6 +1572,9 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                     setPackage(packageName)
                 }
                 sendBroadcast(intent)
+
+                val prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                prefs.edit().putLong("last_diary_execution_time", System.currentTimeMillis()).apply()
 
                 Timber.i("📔 Diary entry persisted: ${diaryResponse.take(80)}...")
                 true

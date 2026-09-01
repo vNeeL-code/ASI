@@ -489,13 +489,13 @@ class InputOverlay(
                                     hapticPulse()
                                     audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
                                     audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
-                                    Toast.makeText(context, "⏭ Next Track", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "⏭", Toast.LENGTH_SHORT).show()
                                 } else {
                                     // Left -> Previous Track
                                     hapticPulse()
                                     audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
                                     audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
-                                    Toast.makeText(context, "⏮ Previous Track", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "⏮", Toast.LENGTH_SHORT).show()
                                 }
                             } else {
                                 if (dy > 0) {
@@ -503,7 +503,7 @@ class InputOverlay(
                                     hapticPulse()
                                     audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
                                     audioManager?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
-                                    Toast.makeText(context, "⏯ Play / Pause", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "⏯", Toast.LENGTH_SHORT).show()
                                 } else {
                                     // Up -> Summon Scratchpad PiP
                                     hapticPulse()

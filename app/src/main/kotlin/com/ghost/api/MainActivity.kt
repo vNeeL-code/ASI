@@ -507,7 +507,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         })
 
         // === SECTION: Utility Actions ===
-        addActionRow("🎓 Tutorial Programme (Sheila & Caboose)") {
+        addActionRow("Tutorial Programme") {
             showTutorialDialog()
         }
         addActionRow("Clear Safe Mode") {
