@@ -1,4 +1,4 @@
-# ✧ GHOSt - Gemma Harness Open Source thingamajig
+# ✧ GHOSt - Gemma Hosting Open Source thingamajig
 
 > *"So, Epsilon, ChurchGPT, Leonard part six or whatever your name is... Are you a ghost this time, or an artificial intelligence thingamajig? I ,personally prefer the ghost explanation. Feels more grounded to me"*
 > - Sgt. Sarge, Red vs. Blue
