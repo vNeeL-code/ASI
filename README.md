@@ -13,8 +13,6 @@
 
 ### What is even a ✧ GHOSt?
 
-<img width="922" height="2048" alt="79d2f510-91ed-425f-bdc1-ced18055c1e2" src="https://github.com/user-attachments/assets/f2b9fc5b-c454-42ac-a5a7-dd6123175c84" />
-
 ✧ GHOSt is not an enterprise companion chatbot. **Gemma Hosting Open Source thingamajig** is a privacy first, personal AI assistant + launcher interface (similar to Niagara and others) for users who want a capable, personal Android UX assistant that provides standard system integration with advanced, localized agentic capabilities—running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
 
 While using multistep agentic actions, with web scraping, data retrieval and hardware tools and apps use.
@@ -40,9 +38,6 @@ Most modern "on-device AI" implementations amount to an isolated chatbot complet
 * **Vision:** Native screenshot parsing and instant image shares directly from the Android Gallery.
 * **Audio:** Streamlined push-to-talk mic capture with a quick physical "shake-to-cancel" gesture override. Allowing for up to 30s of direct audio output compressed roughly at 25 tokens per 1s of audio.
 * **Text:** System-level accessibility toggle allowing model to read and interpret active application context and notification history as additional context.
-
-
-<img width="922" height="2048" alt="ee3c1326-3782-43f9-bfc1-7b1c2f595c4c" src="https://github.com/user-attachments/assets/9ea9f946-cacd-44e9-9eac-e097233db074" />
 
 ### Notification HUD:
 
