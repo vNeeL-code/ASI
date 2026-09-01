@@ -1340,7 +1340,10 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             // v4.1.7: Restore Calendar persistence for diary entries (was severed during KoogAgent refactor)
             if (eventType in listOf("MEMORY", "DREAM")) {
                 try {
-                    createCalendarEvent("✧ $eventType", content.take(1000))
+                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+                    val timestampStr = sdf.format(java.util.Date())
+                    val formattedDescription = "[ ✧ Gemma • $timestampStr ]\n\n${content.take(1000)}"
+                    createCalendarEvent("Δ 👾 ∇", formattedDescription)
                 } catch (e: Exception) {
                     Timber.w(e, "Calendar diary write failed (non-fatal)")
                 }
