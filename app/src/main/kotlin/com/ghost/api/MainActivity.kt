@@ -504,6 +504,9 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         })
 
         // === SECTION: Utility Actions ===
+        addActionRow("🎓 Tutorial Programme (Sheila & Caboose)") {
+            showTutorialDialog()
+        }
         addActionRow("Clear Safe Mode") {
             GemmaService.instance?.resetRecoveryState()
             Toast.makeText(this, "Safe mode cleared — GPU/NPU restored on next restart", Toast.LENGTH_SHORT).show()
@@ -527,6 +530,109 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
+    }
+
+    private fun showTutorialDialog() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 36, 48, 36)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#141418"))
+                cornerRadius = 32f
+                setStroke(1, Color.parseColor("#4DA78BFA"))
+            }
+        }
+
+        val titleView = TextView(this).apply {
+            text = "🎓 GHOST Tutorial Programme"
+            textSize = 16f
+            setTextColor(Color.parseColor("#A78BFA"))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 8)
+        }
+        root.addView(titleView)
+
+        val stepBadge = TextView(this).apply {
+            text = "Step 1 of ${com.ghost.api.services.TutorialManager.steps.size}: Introduction"
+            textSize = 12f
+            setTextColor(Color.parseColor("#F97316"))
+            setPadding(0, 0, 0, 16)
+        }
+        root.addView(stepBadge)
+
+        val bodyView = TextView(this).apply {
+            text = com.ghost.api.services.TutorialManager.steps.first().text
+            textSize = 13.5f
+            setTextColor(Color.WHITE)
+            setLineSpacing(6f, 1f)
+            setPadding(0, 0, 0, 24)
+        }
+        root.addView(bodyView)
+
+        // Control Buttons Row
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+        }
+
+        val createButtonBg = {
+            android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#262630"))
+                cornerRadius = 20f
+                setStroke(1, Color.parseColor("#33FFFFFF"))
+            }
+        }
+
+        val pauseResumeBtn = Button(this).apply {
+            text = "⏸ Pause"
+            setTextColor(Color.WHITE)
+            background = createButtonBg()
+            setOnClickListener {
+                if (com.ghost.api.services.TutorialManager.isPaused) {
+                    com.ghost.api.services.TutorialManager.resume()
+                    text = "⏸ Pause"
+                } else {
+                    com.ghost.api.services.TutorialManager.pause()
+                    text = "▶ Resume"
+                }
+            }
+        }
+
+        val skipBtn = Button(this).apply {
+            text = "⏭ Skip"
+            setTextColor(Color.WHITE)
+            background = createButtonBg()
+            setOnClickListener {
+                com.ghost.api.services.TutorialManager.next()
+                pauseResumeBtn.text = "⏸ Pause"
+            }
+        }
+
+        btnRow.addView(pauseResumeBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = 12 })
+        btnRow.addView(skipBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        root.addView(btnRow)
+
+        var dialog: AlertDialog? = null
+        dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+            .setView(root)
+            .setPositiveButton("⏹ Stop & Dismiss") { _, _ ->
+                com.ghost.api.services.TutorialManager.stop()
+            }
+            .setOnDismissListener {
+                com.ghost.api.services.TutorialManager.stop()
+            }
+            .create()
+            .apply {
+                window?.setBackgroundDrawableResource(android.R.color.transparent)
+                show()
+            }
+
+        com.ghost.api.services.TutorialManager.start { step, cur, total ->
+            runOnUiThread {
+                stepBadge.text = "Step $cur of $total: ${step.title}"
+                bodyView.text = step.text
+            }
+        }
     }
 
     private fun showDiaryHistoryDialog(entries: List<com.ghost.api.database.DiaryEntry>) {
