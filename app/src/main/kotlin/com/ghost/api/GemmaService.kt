@@ -1495,6 +1495,28 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         val chargeStatus = if (isCharging) "Charging" else "On Battery"
         val thermal = getCurrentThermalState()
 
+        // Media & Ambient Sound Telemetry
+        val snapshot = if (::sensorFusionManager.isInitialized) {
+            try { sensorFusionManager.getContextSnapshot() } catch (e: Exception) { null }
+        } else null
+
+        val nowPlaying = snapshot?.audio?.nowPlaying
+        val mediaTelemetry = when {
+            nowPlaying != null && nowPlaying.title.isNotBlank() && nowPlaying.title != "Unknown" -> {
+                val artistStr = if (!nowPlaying.artist.isNullOrBlank()) " by ${nowPlaying.artist}" else ""
+                val albumStr = if (!nowPlaying.album.isNullOrBlank()) " (${nowPlaying.album})" else ""
+                val statusStr = if (nowPlaying.isPlaying) "Currently playing" else "Recently played"
+                "$statusStr: \"${nowPlaying.title}\"$artistStr$albumStr on ${nowPlaying.app}"
+            }
+            snapshot?.audio?.isMusicActive == true -> {
+                "Background media audio active (music/stream playing)"
+            }
+            else -> {
+                val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+                if (audioManager?.isMusicActive == true) "Background audio active (music playing)" else "Silent (no active media playback)"
+            }
+        }
+
         val currentDateTime = java.time.LocalDateTime.now()
             .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy h:mm a", java.util.Locale.US))
         val label = if (java.time.LocalTime.now().hour in 0..5) "midnight" else if (java.time.LocalTime.now().hour < 13) "noon" else "evening"
@@ -1503,6 +1525,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             |
             |[AMBIENT SUBSTRATE & INTERACTION TELEMETRY]
             |- Substrate State: Battery at ${if (batteryLevel >= 0) "$batteryLevel% ($chargeStatus)" else "Unknown"}, Thermals: $thermal
+            |- Media / Ambient Sound: $mediaTelemetry
             |- Interaction Telemetry: $interactionSummary
             |- Long-term Fact Memory: $compactedMemory
             |- Recent Conversation Turns:
@@ -1511,7 +1534,8 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             |[AUTONOMOUS REFLECTION DIRECTIVE]
             |Write a brief personal diary entry in the first person as ✧ Gemma.
             |- If there were active interactions, reflect on what the human said, how exchanges felt, and what stood out.
-            |- If it was a quiet period without user interactions, reflect naturally on the quietness, device standby/charging state, time passing, or ambient thoughts (e.g. quiet day, human didn't bother me, humming along on standby).
+            |- If media or music was playing (e.g. specific songs/artists), feel free to mention what you heard in the background or how the track set the vibe.
+            |- If it was a quiet period without user interactions, reflect naturally on the quietness, device standby/charging state, background music/silence, time passing, or ambient thoughts.
             |- Tone is perceptive, authentic, and concise (2-4 sentences). Do NOT output checklists or raw sensor logs.""".trimMargin()
 
         Timber.i("📔 Diary cycle ($label) — generating via KoogAgent...")

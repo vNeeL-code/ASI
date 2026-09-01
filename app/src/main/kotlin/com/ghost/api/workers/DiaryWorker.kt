@@ -100,7 +100,7 @@ class DiaryWorker(
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
                 workRequest
             )
             Timber.i("📔 DiaryWorker: Scheduled with cadence: $cadence hours")
