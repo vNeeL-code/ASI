@@ -121,8 +121,17 @@ class AppReelOverlay(
         }
 
         val metrics = context.resources.displayMetrics
+        val isLandscape = metrics.widthPixels > metrics.heightPixels
+        val heightDp = metrics.heightPixels / metrics.density
+        val reelY = if (isLandscape || heightDp < 600) {
+            val apexOffset = (dpToPx(182) * (heightDp / 850f).coerceIn(0.58f, 1.0f)).toInt()
+            -(apexOffset + dpToPx(60)).coerceAtMost((metrics.heightPixels / 2) - dpToPx(50))
+        } else {
+            -dpToPx(320)
+        }
+
         val width = (metrics.widthPixels * 0.92).toInt().coerceAtMost(dpToPx(400))
-        val height = dpToPx(95)
+        val height = if (isLandscape || heightDp < 600) dpToPx(82) else dpToPx(95)
 
         windowParams = WindowManager.LayoutParams(
             width, height, type,
@@ -130,7 +139,7 @@ class AppReelOverlay(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
-            y = -dpToPx(320) // Floating higher above the top orange ✧ apex with generous breathing room
+            y = reelY
         }
 
         textPaint.apply {

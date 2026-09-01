@@ -229,9 +229,23 @@ class InputOverlay(
     }
 
     private fun addRadialButtons() {
-        val horizontalOffset = dpToPx(90)
-        val verticalOffset = dpToPx(105)
-        val apexVerticalOffset = dpToPx(182) // Pointy rocket apex tips
+        val metrics = context.resources.displayMetrics
+        val screenW = metrics.widthPixels
+        val screenH = metrics.heightPixels
+        val isLandscape = screenW > screenH
+        val heightDp = screenH / metrics.density
+
+        // Adaptive scaling for landscape, compact viewports, and foldables
+        val verticalScale = if (isLandscape || heightDp < 600) {
+            (heightDp / 850f).coerceIn(0.58f, 1.0f)
+        } else {
+            1.0f
+        }
+        val horizontalSpread = if (isLandscape) 1.25f else 1.0f
+
+        val horizontalOffset = (dpToPx(90) * horizontalSpread * (if (isLandscape) 0.9f else 1.0f)).toInt()
+        val verticalOffset = (dpToPx(105) * verticalScale).toInt()
+        val apexVerticalOffset = (dpToPx(182) * verticalScale).toInt()
 
         // 1. Top Apex Vertex: Orange (CS:GO Tape Reel Launcher)
         setupTopOrangeButton(0f, -apexVerticalOffset.toFloat())
