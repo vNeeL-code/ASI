@@ -158,9 +158,17 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
     }
 
     private var audioFocusRequest: android.media.AudioFocusRequest? = null
+    @Volatile private var wasMusicPlayingBeforeSpeech = false
+    var utteranceFinishedListener: ((String) -> Unit)? = null
 
     private fun requestAudioDucking() {
         try {
+            if (audioManager.isMusicActive) {
+                wasMusicPlayingBeforeSpeech = true
+                dispatchMediaKey(android.view.KeyEvent.KEYCODE_MEDIA_PAUSE)
+                Timber.i("⏸ Active media detected — dispatched KEYCODE_MEDIA_PAUSE for TTS")
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val playbackAttributes = android.media.AudioAttributes.Builder()
                     .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
@@ -178,7 +186,7 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                 @Suppress("DEPRECATION")
                 audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
             }
-            Timber.d("🔊 Audio focus (TRANSIENT) requested for TTS — background media paused/ducked")
+            Timber.d("🔊 Audio focus (TRANSIENT) requested for TTS")
         } catch (e: Exception) {
             Timber.w(e, "Failed to request audio focus")
         }
@@ -195,9 +203,26 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                 @Suppress("DEPRECATION")
                 audioManager.abandonAudioFocus(null)
             }
-            Timber.d("🔊 Audio focus abandoned — background media auto-resumed")
+
+            if (wasMusicPlayingBeforeSpeech) {
+                wasMusicPlayingBeforeSpeech = false
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    dispatchMediaKey(android.view.KeyEvent.KEYCODE_MEDIA_PLAY)
+                    Timber.i("▶ Dispatched KEYCODE_MEDIA_PLAY — resumed media after TTS")
+                }, 350)
+            }
+            Timber.d("🔊 Audio focus abandoned — media playback restored")
         } catch (e: Exception) {
             Timber.w(e, "Failed to abandon audio focus")
+        }
+    }
+
+    private fun dispatchMediaKey(keyCode: Int) {
+        try {
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode))
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode))
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to dispatch media key $keyCode")
         }
     }
 
@@ -268,10 +293,12 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                 override fun onDone(utteranceId: String?) {
                     abandonAudioDucking()
                     context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
+                    utteranceId?.let { utteranceFinishedListener?.invoke(it) }
                 }
                 override fun onError(utteranceId: String?) {
                     abandonAudioDucking()
                     context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
+                    utteranceId?.let { utteranceFinishedListener?.invoke(it) }
                 }
             })
 
@@ -369,7 +396,7 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
      * @param priority Priority level (affects queueing behavior)
      * @return true if speech was initiated, false if deferred or suppressed
      */
-    fun smartSpeak(text: String, priority: Priority = Priority.NORMAL): Boolean {
+    fun smartSpeak(text: String, priority: Priority = Priority.NORMAL, customUtteranceId: String? = null): Boolean {
         val cleanText = cleanMarkdownForSpeech(text)
         if (!isReady || cleanText.isBlank()) return false
 
@@ -379,11 +406,11 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
             var lastResult = false
             for ((index, chunk) in chunks.withIndex()) {
                 val p = if (index == 0) priority else Priority.NORMAL
-                lastResult = doSmartSpeak(chunk, p, isChunk = index > 0)
+                lastResult = doSmartSpeak(chunk, p, isChunk = index > 0, customUtteranceId = if (index == chunks.size - 1) customUtteranceId else null)
             }
             return lastResult
         } else {
-            return doSmartSpeak(cleanText, priority, isChunk = false)
+            return doSmartSpeak(cleanText, priority, isChunk = false, customUtteranceId = customUtteranceId)
         }
     }
 
@@ -411,17 +438,19 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
         return chunks
     }
 
-    private fun doSmartSpeak(text: String, priority: Priority, isChunk: Boolean): Boolean {
+    private fun doSmartSpeak(text: String, priority: Priority, isChunk: Boolean, customUtteranceId: String? = null): Boolean {
         if (!isReady || text.isBlank()) return false
 
         val state = getDeviceState()
         Timber.d("TTS smartSpeak: state=$state, priority=$priority, text=${text.take(30)}...")
 
+        val uId = customUtteranceId ?: if (priority == Priority.IMMEDIATE) "GemmaImmediate" else "GemmaResponse"
+
         // IMMEDIATE priority bypasses all checks
         if (priority == Priority.IMMEDIATE) {
             requestAudioDucking()
             val queueMode = if (isChunk) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH
-            tts?.speak(text, queueMode, null, "GemmaImmediate")
+            tts?.speak(text, queueMode, null, uId)
             return true
         }
 
