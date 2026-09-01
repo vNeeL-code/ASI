@@ -308,9 +308,8 @@ class InputOverlay(
                             }
                             launchBoundApp("Orange (Apps)", direction)
                         } else {
-                            // Tap -> Toggle App Drawer Reel
-                            hapticPulse()
-                            com.ghost.api.GemmaService.instance?.overlayManager?.showAppReel()
+                            // Tap -> Neutral / Settings
+                            launchBoundApp("Orange (Apps)", "TAP")
                         }
                     }
                     MotionEvent.ACTION_CANCEL -> {
@@ -505,6 +504,20 @@ class InputOverlay(
                 // Default unassigned UP slot on Orange: Toggle Flashlight!
                 hapticPulse()
                 com.ghost.api.hardware.HardwareToolSet(context).flashlight("TOGGLE")
+                return
+            }
+            boundPackage == null && label.contains("Orange") && direction == "TAP" -> {
+                // Default unassigned TAP on Orange: System Settings!
+                hapticPulse()
+                try {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    onDismiss()
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to open Settings")
+                }
                 return
             }
             else -> null
