@@ -180,14 +180,16 @@ class AppReelOverlay(
             return
         }
 
-        // 2. Draw Horizontal Tape Reel
+        // 2. Infinite Circular Wrapping Tape Reel
         val numItems = appItems.size
-        val maxScroll = (numItems - 1) * stride
-        scrollOffset = scrollOffset.coerceIn(0f, maxScroll)
+        val centerFloatIdx = scrollOffset / stride
+        val centerIdx = Math.round(centerFloatIdx).toInt()
 
-        for (i in 0 until numItems) {
-            val itemX = cx + (i * stride) - scrollOffset
-            if (itemX < -itemWidth || itemX > width + itemWidth) continue // Cull offscreen
+        for (k in -5..5) {
+            val virtualIdx = centerIdx + k
+            val realIdx = ((virtualIdx % numItems) + numItems) % numItems
+            val itemX = cx + (virtualIdx * stride) - scrollOffset
+            if (itemX < -itemWidth * 1.5f || itemX > width + itemWidth * 1.5f) continue // Cull offscreen
 
             val distFromCenter = abs(itemX - cx)
             val isCenter = distFromCenter < (stride / 2f)
@@ -216,7 +218,7 @@ class AppReelOverlay(
             canvas.drawRoundRect(cardRect, dpToPx(10).toFloat(), dpToPx(10).toFloat(), paint)
 
             // App Icon
-            val item = appItems[i]
+            val item = appItems[realIdx]
             item.iconBitmap?.let { bmp ->
                 val iconSize = (dpToPx(28) * scale).toInt()
                 val iconRect = Rect(
@@ -237,13 +239,14 @@ class AppReelOverlay(
             canvas.drawText(cleanName, itemX, cy + curCardH / 2 - dpToPx(4) * scale, textPaint)
         }
 
-        // Current Selected Index
-        val curCenterIdx = (scrollOffset / stride).roundToInt().coerceIn(0, numItems - 1)
-        if (curCenterIdx != lastHapticIndex) {
-            lastHapticIndex = curCenterIdx
+        // Current Selected Real Index
+        val curVirtualCenter = Math.round(scrollOffset / stride).toInt()
+        val curRealCenter = ((curVirtualCenter % numItems) + numItems) % numItems
+        if (curVirtualCenter != lastHapticIndex) {
+            lastHapticIndex = curVirtualCenter
             performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         }
-        selectedIndex = curCenterIdx
+        selectedIndex = curRealCenter
 
         // 3. Bottom Subtitle (Focused App Title)
         val selectedApp = appItems.getOrNull(selectedIndex)
@@ -253,6 +256,54 @@ class AppReelOverlay(
             textPaint.textSize = dpToPx(9.5f).toFloat()
             canvas.drawText(selectedApp.label.take(24), cx, height - dpToPx(5).toFloat(), textPaint)
         }
+    }
+
+    private var currentVelocity: Float = 0f
+    private val frameCallback = object : android.view.Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (currentVelocity != 0f && appItems.isNotEmpty()) {
+                scrollOffset += currentVelocity
+                invalidate()
+                android.view.Choreographer.getInstance().postFrameCallback(this)
+            }
+        }
+    }
+
+    fun setJoystickVelocity(vx: Float) {
+        val wasZero = (currentVelocity == 0f)
+        currentVelocity = vx
+        if (vx != 0f) {
+            if (wasZero) {
+                android.view.Choreographer.getInstance().postFrameCallback(frameCallback)
+            }
+        } else {
+            android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
+            val nearestVirtual = Math.round(scrollOffset / stride).toInt()
+            animateSnapTo(nearestVirtual * stride)
+        }
+    }
+
+    private fun animateSnapTo(targetOffset: Float) {
+        val start = scrollOffset
+        if (abs(start - targetOffset) < 1f) {
+            scrollOffset = targetOffset
+            invalidate()
+            return
+        }
+        val anim = android.animation.ValueAnimator.ofFloat(start, targetOffset).apply {
+            duration = 180
+            interpolator = android.view.animation.DecelerateInterpolator()
+            addUpdateListener {
+                scrollOffset = it.animatedValue as Float
+                invalidate()
+            }
+        }
+        anim.start()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -293,13 +344,13 @@ class AppReelOverlay(
                 if (totalDragDistance < threshold) {
                     // Explicit Tap on Card -> Launch!
                     val cx = width / 2f
-                    val tappedIndex = ((event.x - cx + scrollOffset) / stride).roundToInt().coerceIn(0, appItems.size - 1)
-                    launchAppAtIndex(tappedIndex)
+                    val tappedVirtualIndex = ((event.x - cx + scrollOffset) / stride).roundToInt()
+                    val tappedRealIndex = ((tappedVirtualIndex % appItems.size) + appItems.size) % appItems.size
+                    launchAppAtIndex(tappedRealIndex)
                 } else {
-                    // Drag ended -> Snap to closest card and stay open
-                    val nearestOffset = selectedIndex * stride
-                    scrollOffset = nearestOffset
-                    invalidate()
+                    // Drag ended -> Snap to closest virtual card and stay open
+                    val nearestVirtual = (scrollOffset / stride).roundToInt()
+                    animateSnapTo(nearestVirtual * stride)
                 }
                 return true
             }
@@ -311,20 +362,15 @@ class AppReelOverlay(
     }
 
     fun scrubRelative(deltaX: Float) {
-        val numItems = appItems.size
-        if (numItems == 0) return
-        val maxScroll = (numItems - 1) * stride
-        scrollOffset = (scrollOffset - deltaX * 1.35f).coerceIn(0f, maxScroll)
+        if (appItems.isEmpty()) return
+        scrollOffset -= deltaX * 1.35f
         invalidate()
     }
 
     fun stepDirection(step: Int) {
-        val numItems = appItems.size
-        if (numItems == 0) return
-        val maxScroll = (numItems - 1) * stride
-        val newIdx = (selectedIndex + step).coerceIn(0, numItems - 1)
-        scrollOffset = (newIdx * stride).coerceIn(0f, maxScroll)
-        invalidate()
+        if (appItems.isEmpty()) return
+        val currentVirtual = Math.round(scrollOffset / stride).toInt()
+        animateSnapTo((currentVirtual + step) * stride)
     }
 
     fun launchCurrentlySelected(): Boolean {

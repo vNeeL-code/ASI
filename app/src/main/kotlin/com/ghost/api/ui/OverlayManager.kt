@@ -490,6 +490,10 @@ class OverlayManager(private val context: Context) {
         appReelOverlay?.stepDirection(step)
     }
 
+    fun setAppReelJoystickVelocity(vx: Float) {
+        appReelOverlay?.setJoystickVelocity(vx)
+    }
+
     fun launchAppReelSelected(): Boolean {
         return appReelOverlay?.launchCurrentlySelected() ?: false
     }

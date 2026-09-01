@@ -363,17 +363,23 @@ class InputOverlay(
                             triggerSocketMagneticSparkle(socket)
                         }
 
-                        // Live remote joystick scrubbing on horizontal thumb wiggle when Reel is visible
+                        // Analog velocity continuous joystick spin on horizontal thumb hold
                         if (overlayMgr?.isAppReelVisible() == true) {
-                            val moveDx = event.rawX - lastRawX
-                            if (Math.abs(moveDx) > 1.5f) {
-                                overlayMgr.scrubAppReel(moveDx)
+                            val dx = event.rawX - startX
+                            val dy = event.rawY - startY
+                            if (Math.abs(dx) > threshold && Math.abs(dx) > Math.abs(dy) * 0.7f) {
+                                val deflection = dx - (Math.signum(dx) * threshold)
+                                val norm = (deflection / dpToPx(24).toFloat()).coerceIn(-1.5f, 1.5f)
+                                val speed = -Math.signum(norm) * Math.pow(Math.abs(norm).toDouble(), 1.4).toFloat() * dpToPx(9).toFloat()
+                                overlayMgr.setAppReelJoystickVelocity(speed)
+                            } else {
+                                overlayMgr.setAppReelJoystickVelocity(0f)
                             }
                         }
-                        lastRawX = event.rawX
                         true
                     }
                     MotionEvent.ACTION_UP -> {
+                        overlayMgr?.setAppReelJoystickVelocity(0f)
                         resetPuckSpring(v, tx, ty)
                         val dx = event.rawX - startX
                         val dy = event.rawY - startY
@@ -400,7 +406,7 @@ class InputOverlay(
                                     }
                                 }
                             }
-                            // If horizontal drag (LEFT / RIGHT) -> already live-scrubbed, release stays open without firing!
+                            // If horizontal drag (LEFT / RIGHT) -> already spun via joystick, release stays open at rest!
                         } else {
                             // Released in deadzone / neutral -> Safe zero state + Magnetic snap sparkle!
                             triggerSocketMagneticSparkle(socket)
@@ -409,6 +415,7 @@ class InputOverlay(
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> {
+                        overlayMgr?.setAppReelJoystickVelocity(0f)
                         resetPuckSpring(v, tx, ty)
                         true
                     }
