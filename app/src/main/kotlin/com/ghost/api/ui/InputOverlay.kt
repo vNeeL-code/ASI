@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -249,6 +250,44 @@ class InputOverlay(
         isFocusable = false
     }
 
+    private fun createBaseSocket(color: Int, tx: Float, ty: Float): TextView {
+        val socketSize = dpToPx(44)
+        return TextView(context).apply {
+            text = "+"
+            textSize = 14f
+            setTextColor(Color.argb(180, 255, 255, 255))
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#1C1C24"))
+                setStroke(dpToPx(1), Color.argb(110, Color.red(color), Color.green(color), Color.blue(color)))
+            }
+            translationX = tx
+            translationY = ty
+            alpha = 0.5f
+            layoutParams = LayoutParams(socketSize, socketSize).apply {
+                gravity = Gravity.CENTER
+            }
+        }
+    }
+
+    private fun triggerSocketMagneticSparkle(socket: View) {
+        socket.animate()
+            .scaleX(1.25f)
+            .scaleY(1.25f)
+            .alpha(1.0f)
+            .setDuration(80)
+            .withEndAction {
+                socket.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .alpha(0.5f)
+                    .setDuration(160)
+                    .start()
+            }
+            .start()
+    }
+
     private fun applyPuckWiggle(view: View, baseTx: Float, baseTy: Float, startX: Float, startY: Float, rawX: Float, rawY: Float) {
         val rawDx = rawX - startX
         val rawDy = rawY - startY
@@ -273,6 +312,9 @@ class InputOverlay(
     }
 
     private fun setupTopOrangeButton(tx: Float, ty: Float) {
+        val socket = createBaseSocket(colorOrange, tx, ty)
+        addView(socket)
+
         val btnSize = dpToPx(48)
         val btn = TextView(context).apply {
             text = "✧"
@@ -291,6 +333,7 @@ class InputOverlay(
             var startY = 0f
             var lastRawX = 0f
             var isSwiping = false
+            var isInDeadzone = true
 
             setOnTouchListener { v, event ->
                 val threshold = dpToPx(18).toFloat()
@@ -301,14 +344,23 @@ class InputOverlay(
                         startY = event.rawY
                         lastRawX = event.rawX
                         isSwiping = false
+                        isInDeadzone = true
                         v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(100).start()
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
                         applyPuckWiggle(v, tx, ty, startX, startY, event.rawX, event.rawY)
                         val totalDist = Math.hypot((event.rawX - startX).toDouble(), (event.rawY - startY).toDouble()).toFloat()
-                        if (totalDist > threshold) {
+
+                        // Magnetic detent state transitions
+                        if (isInDeadzone && totalDist >= threshold) {
+                            isInDeadzone = false
                             isSwiping = true
+                            v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        } else if (!isInDeadzone && totalDist < threshold) {
+                            isInDeadzone = true
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            triggerSocketMagneticSparkle(socket)
                         }
 
                         // Live remote joystick scrubbing on horizontal thumb wiggle when Reel is visible
@@ -350,7 +402,9 @@ class InputOverlay(
                             }
                             // If horizontal drag (LEFT / RIGHT) -> already live-scrubbed, release stays open without firing!
                         } else {
-                            // Tap / neutral release -> Safe zero state (no auto-launch)
+                            // Released in deadzone / neutral -> Safe zero state + Magnetic snap sparkle!
+                            triggerSocketMagneticSparkle(socket)
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         }
                         true
                     }
@@ -366,6 +420,9 @@ class InputOverlay(
     }
 
     private fun setupBottomCyanPuck(tx: Float, ty: Float) {
+        val socket = createBaseSocket(colorCyan, tx, ty)
+        addView(socket)
+
         val btnSize = dpToPx(48)
         val btn = TextView(context).apply {
             text = "✧"
@@ -383,30 +440,42 @@ class InputOverlay(
             var startX = 0f
             var startY = 0f
             var isSwiping = false
+            var isInDeadzone = true
 
             setOnTouchListener { v, event ->
-                val threshold = 35f
+                val threshold = dpToPx(18).toFloat()
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         startX = event.rawX
                         startY = event.rawY
                         isSwiping = false
+                        isInDeadzone = true
                         v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(100).start()
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
                         applyPuckWiggle(v, tx, ty, startX, startY, event.rawX, event.rawY)
-                        if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
+                        val totalDist = Math.hypot((event.rawX - startX).toDouble(), (event.rawY - startY).toDouble()).toFloat()
+
+                        if (isInDeadzone && totalDist >= threshold) {
+                            isInDeadzone = false
                             isSwiping = true
+                            v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        } else if (!isInDeadzone && totalDist < threshold) {
+                            isInDeadzone = true
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            triggerSocketMagneticSparkle(socket)
                         }
                         true
                     }
                     MotionEvent.ACTION_UP -> {
                         resetPuckSpring(v, tx, ty)
                         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
-                        if (isSwiping) {
-                            val dx = event.rawX - startX
-                            val dy = event.rawY - startY
+                        val dx = event.rawX - startX
+                        val dy = event.rawY - startY
+                        val totalDist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+
+                        if (totalDist >= threshold) {
                             if (Math.abs(dx) > Math.abs(dy)) {
                                 if (dx > 0) {
                                     // Right -> Next Track
@@ -435,9 +504,9 @@ class InputOverlay(
                                 }
                             }
                         } else {
-                            // Tap -> Summon / Toggle Scratchpad PiP
-                            hapticPulse()
-                            com.ghost.api.GemmaService.instance?.overlayManager?.showScratchpad()
+                            // Released in deadzone -> Magnetic snap sparkle & neutral cancel!
+                            triggerSocketMagneticSparkle(socket)
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         }
                         true
                     }
@@ -453,6 +522,9 @@ class InputOverlay(
     }
 
     private fun setupRadialButton(color: Int, tx: Float, ty: Float, label: String) {
+        val socket = createBaseSocket(color, tx, ty)
+        addView(socket)
+
         val btnSize = dpToPx(48)
         val btn = TextView(context).apply {
             text = "✧"
@@ -471,6 +543,7 @@ class InputOverlay(
             var startY = 0f
             var isSwiping = false
             var wasLongClicked = false
+            var isInDeadzone = true
 
             // Interaction: Pullable logic (Hold to expand)
             setOnLongClickListener {
@@ -490,13 +563,21 @@ class InputOverlay(
                         startY = event.rawY
                         isSwiping = false
                         wasLongClicked = false
+                        isInDeadzone = true
                         v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(100).start()
                     }
                     android.view.MotionEvent.ACTION_MOVE -> {
                         applyPuckWiggle(v, tx, ty, startX, startY, event.rawX, event.rawY)
                         val totalDist = Math.hypot((event.rawX - startX).toDouble(), (event.rawY - startY).toDouble()).toFloat()
-                        if (totalDist > deadzoneThreshold) {
+
+                        if (isInDeadzone && totalDist >= deadzoneThreshold) {
+                            isInDeadzone = false
                             isSwiping = true
+                            v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        } else if (!isInDeadzone && totalDist < deadzoneThreshold) {
+                            isInDeadzone = true
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            triggerSocketMagneticSparkle(socket)
                         }
                     }
                     android.view.MotionEvent.ACTION_UP -> {
@@ -516,7 +597,9 @@ class InputOverlay(
                             }
                             launchBoundApp(label, direction)
                         } else {
-                            // Released in center deadzone / neutral -> Zero action, spring back safely!
+                            // Released in center deadzone / neutral -> Zero action + Magnetic snap spark!
+                            triggerSocketMagneticSparkle(socket)
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             Timber.d("Puck $label released in deadzone ($totalDist < $deadzoneThreshold) - neutral cancel")
                         }
                     }
