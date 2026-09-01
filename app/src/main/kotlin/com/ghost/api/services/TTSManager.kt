@@ -166,20 +166,21 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                     .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
-                val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                     .setAudioAttributes(playbackAttributes)
                     .setAcceptsDelayedFocusGain(false)
-                    .setOnAudioFocusChangeListener { /* no-op */ }
+                    .setWillPauseWhenDucked(true)
+                    .setOnAudioFocusChangeListener { /* auto-managed by AudioService */ }
                     .build()
                 audioFocusRequest = req
                 audioManager.requestAudioFocus(req)
             } else {
                 @Suppress("DEPRECATION")
-                audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
             }
-            Timber.d("🔊 Audio ducking requested for TTS")
+            Timber.d("🔊 Audio focus (TRANSIENT) requested for TTS — background media paused/ducked")
         } catch (e: Exception) {
-            Timber.w(e, "Failed to request audio ducking")
+            Timber.w(e, "Failed to request audio focus")
         }
     }
 
@@ -194,9 +195,9 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                 @Suppress("DEPRECATION")
                 audioManager.abandonAudioFocus(null)
             }
-            Timber.d("🔊 Audio ducking abandoned — media volume restored")
+            Timber.d("🔊 Audio focus abandoned — background media auto-resumed")
         } catch (e: Exception) {
-            Timber.w(e, "Failed to abandon audio ducking")
+            Timber.w(e, "Failed to abandon audio focus")
         }
     }
 
@@ -418,6 +419,7 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
 
         // IMMEDIATE priority bypasses all checks
         if (priority == Priority.IMMEDIATE) {
+            requestAudioDucking()
             val queueMode = if (isChunk) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH
             tts?.speak(text, queueMode, null, "GemmaImmediate")
             return true
@@ -434,6 +436,7 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                 if (respectScreenLock) {
                     // Screen off - defer unless high priority
                     if (priority == Priority.HIGH) {
+                        requestAudioDucking()
                         tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "GemmaHigh")
                         true
                     } else {
@@ -442,6 +445,7 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                         false
                     }
                 } else {
+                    requestAudioDucking()
                     tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "GemmaResponse")
                     true
                 }
@@ -449,6 +453,7 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
             DeviceState.LOCKED_VISIBLE -> {
                 // Lock screen visible - speak at lower volume for HIGH, defer NORMAL/LOW
                 if (priority >= Priority.NORMAL) {
+                    requestAudioDucking()
                     tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "GemmaLocked")
                     true
                 } else {
@@ -458,11 +463,13 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
             }
             DeviceState.PRIVATE_AUDIO -> {
                 // Headphones connected - always safe to speak
+                requestAudioDucking()
                 tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "GemmaPrivate")
                 true
             }
             DeviceState.ACTIVE -> {
                 // Active use - check if we should interrupt media
+                requestAudioDucking()
                 val queueMode = if (isChunk || (audioManager.isMusicActive && priority < Priority.HIGH)) {
                     TextToSpeech.QUEUE_ADD
                 } else {
