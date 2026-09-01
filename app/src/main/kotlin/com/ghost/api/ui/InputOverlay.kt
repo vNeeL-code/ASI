@@ -264,9 +264,61 @@ class InputOverlay(
                 gravity = Gravity.CENTER
             }
 
-            setOnClickListener {
-                hapticPulse()
-                com.ghost.api.GemmaService.instance?.overlayManager?.showAppReel()
+            var startX = 0f
+            var startY = 0f
+            var isSwiping = false
+            var wasLongClicked = false
+
+            // Hold to expand 3-slot custom binding sub-menu
+            setOnLongClickListener {
+                if (!isSwiping) {
+                    wasLongClicked = true
+                    hapticPulse()
+                    expandSubMenu(this, tx, ty, "Orange (Apps)")
+                }
+                true
+            }
+
+            setOnTouchListener { v, event ->
+                val threshold = 35f
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startX = event.rawX
+                        startY = event.rawY
+                        isSwiping = false
+                        wasLongClicked = false
+                        v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(100).start()
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (Math.abs(event.rawX - startX) > threshold || Math.abs(event.rawY - startY) > threshold) {
+                            isSwiping = true
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        if (wasLongClicked) {
+                            wasLongClicked = false
+                        } else if (isSwiping) {
+                            val dx = event.rawX - startX
+                            val dy = event.rawY - startY
+                            val direction = if (Math.abs(dx) > Math.abs(dy)) {
+                                if (dx > 0) "RIGHT" else "LEFT"
+                            } else {
+                                if (dy > 0) "DOWN" else "UP"
+                            }
+                            launchBoundApp("Orange (Apps)", direction)
+                        } else {
+                            // Tap -> Toggle App Drawer Reel
+                            hapticPulse()
+                            com.ghost.api.GemmaService.instance?.overlayManager?.showAppReel()
+                        }
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        wasLongClicked = false
+                    }
+                }
+                false
             }
         }
         addView(btn)
@@ -433,6 +485,12 @@ class InputOverlay(
     }
 
     private fun launchBoundApp(label: String, direction: String) {
+        if (label.contains("Orange") && direction == "DOWN") {
+            hapticPulse()
+            com.ghost.api.GemmaService.instance?.overlayManager?.showAppReel()
+            return
+        }
+
         val boundPackage = prefs.getString("BIND_${label}_${direction}", null)
         
         // Audit 9.0: Agentic Shortcuts
@@ -443,6 +501,12 @@ class InputOverlay(
             boundPackage == null && label.contains("Blue") -> "/search"
             boundPackage == null && label.contains("Green") -> "/diary"
             boundPackage == null && label.contains("Yellow") -> "/tools"
+            boundPackage == null && label.contains("Orange") && direction == "UP" -> {
+                // Default unassigned UP slot on Orange: Toggle Flashlight!
+                hapticPulse()
+                com.ghost.api.hardware.HardwareToolSet(context).flashlight("TOGGLE")
+                return
+            }
             else -> null
         }
 
@@ -497,12 +561,20 @@ class InputOverlay(
         val directions = listOf("UP", "DOWN", "LEFT", "RIGHT")
 
         slots.forEachIndexed { index, pos ->
+            val isOrangeDown = parentLabel.contains("Orange") && directions[index] == "DOWN"
+            val boundPkg = prefs.getString("BIND_${parentLabel}_${directions[index]}", null)
+
             val slot = TextView(context).apply {
-                text = "+"
-                textSize = 14f
-                setTextColor(Color.GRAY)
+                text = when {
+                    isOrangeDown -> "📱"
+                    boundPkg != null -> boundPkg.split('.').lastOrNull()?.take(2)?.uppercase() ?: "+"
+                    parentLabel.contains("Orange") && directions[index] == "UP" -> "🔦"
+                    else -> "+"
+                }
+                textSize = if (isOrangeDown || text.length > 1) 11f else 14f
+                setTextColor(if (isOrangeDown) colorOrange else if (boundPkg != null) Color.WHITE else Color.GRAY)
                 gravity = Gravity.CENTER
-                background = createCircleBackground(Color.parseColor("#3D3D3D"))
+                background = createCircleBackground(if (isOrangeDown) Color.parseColor("#4D1C1C22") else Color.parseColor("#3D3D3D"))
                 
                 layoutParams = LayoutParams(slotSize, slotSize).apply {
                     gravity = Gravity.TOP or Gravity.START
@@ -517,7 +589,11 @@ class InputOverlay(
                 
                 setOnClickListener {
                     hapticPulse()
-                    showAppPicker(parentLabel, directions[index])
+                    if (isOrangeDown) {
+                        Toast.makeText(context, "Slot dedicated to App Drawer Reel", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showAppPicker(parentLabel, directions[index])
+                    }
                 }
             }
             parentGroup.addView(slot)
