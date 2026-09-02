@@ -112,10 +112,6 @@ class OverlayManager(private val context: Context) {
         )
 
         val params = getInteractiveLayoutParams().apply {
-            // Anchor to TOP to prevent keyboard resize 'jumps'
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            // Use physical screen height from WindowManager — NOT context.resources.displayMetrics
-            // which tracks the app *window* size and drifts when bubbles/freeform windows resize.
             val (screenHeight, screenWidth) = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                 val bounds = windowManager!!.currentWindowMetrics.bounds
                 bounds.height() to bounds.width()
@@ -126,10 +122,17 @@ class OverlayManager(private val context: Context) {
                 dm.heightPixels to dm.widthPixels
             }
             val isLandscape = screenWidth > screenHeight
-            val windowHeight = dpToPx(520)
-            // Centered vertically minus ergonomic offset (shift higher up in landscape mode to clear bottom edge)
-            val verticalShift = if (isLandscape) dpToPx(52) else dpToPx(15)
-            y = (screenHeight - windowHeight) / 2 - verticalShift
+            
+            if (isLandscape) {
+                // True mathematical center in landscape mode
+                gravity = Gravity.CENTER
+                y = -dpToPx(10) // Slight upward lift for bottom puck clearance
+            } else {
+                // Anchor to TOP in portrait to prevent keyboard resize jumps
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                val windowHeight = dpToPx(520)
+                y = (screenHeight - windowHeight) / 2 - dpToPx(15)
+            }
         }
 
         windowManager?.addView(inputOverlay, params)
@@ -347,6 +350,10 @@ class OverlayManager(private val context: Context) {
             }
             inputOverlay = null
 
+            // Clean up any satellite overlays (App Reel tape, Scratchpad)
+            hideAppReel()
+            hideScratchpad()
+
             isShowing = false
             Timber.i("Overlay hidden")
         } catch (e: Exception) {
@@ -355,6 +362,8 @@ class OverlayManager(private val context: Context) {
             overlayView = null
             pillView = null
             inputOverlay = null
+            hideAppReel()
+            hideScratchpad()
         }
     }
 

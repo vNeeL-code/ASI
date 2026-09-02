@@ -59,18 +59,20 @@ class InputOverlay(
     private var appPickerLayout: View? = null
 
     init {
+        val metrics = context.resources.displayMetrics
+        val isLandscape = metrics.widthPixels > metrics.heightPixels
+        val frameHeight = if (isLandscape) ViewGroup.LayoutParams.MATCH_PARENT else dpToPx(480)
+
         // Main Frame size (expanded for 6-point radial hexagon/diamond)
         clipChildren = false
         clipToPadding = false
         layoutParams = LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(480) 
+            frameHeight
         ).apply {
             gravity = Gravity.CENTER
         }
 
-        val metrics = context.resources.displayMetrics
-        val isLandscape = metrics.widthPixels > metrics.heightPixels
         val barWidth = if (isLandscape) {
             dpToPx(240).coerceAtMost((metrics.widthPixels * 0.45f).toInt())
         } else {
@@ -241,17 +243,11 @@ class InputOverlay(
         val isLandscape = screenW > screenH
         val heightDp = screenH / metrics.density
 
-        // In landscape, scale vertically and spread horizontally to clear the compact center pill
-        val verticalScale = if (isLandscape || heightDp < 600) {
-            (heightDp / 850f).coerceIn(0.52f, 0.85f)
-        } else {
-            1.0f
-        }
+        // In landscape, center the cluster with ideal ergonomic spread
         val horizontalSpread = if (isLandscape) 1.55f else 1.0f
-
         val horizontalOffset = (dpToPx(90) * horizontalSpread).toInt()
-        val verticalOffset = (dpToPx(105) * verticalScale).toInt()
-        val apexVerticalOffset = (dpToPx(175) * verticalScale).toInt()
+        val verticalOffset = if (isLandscape) dpToPx(56) else dpToPx(105)
+        val apexVerticalOffset = if (isLandscape) dpToPx(102) else dpToPx(182)
 
         // 1. Top Apex Vertex: Orange (CS:GO Tape Reel Launcher)
         setupTopOrangeButton(0f, -apexVerticalOffset.toFloat())
@@ -827,6 +823,7 @@ class InputOverlay(
     }
 
     private fun dismissSubMenus() {
+        com.ghost.api.GemmaService.instance?.overlayManager?.hideAppReel()
         activeSlots.forEach { it.animate().alpha(0f).scaleX(0f).scaleY(0f).setDuration(200).withEndAction { removeView(it) }.start() }
         activeSlots.clear()
         
