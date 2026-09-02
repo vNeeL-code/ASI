@@ -35,17 +35,15 @@ class AvatarWallpaperService : WallpaperService() {
         private var smoothedIntensity = 0f
         private var smoothedBass = 0f
         
-        // Default Google Colors + Accent Purple
+        // Default Google Colors + Accent Cobalt & Purple
         private val defaultColors = intArrayOf(
-            Color.parseColor("#A78BFA"),
-            Color.parseColor("#4285F4"),
-            Color.parseColor("#EA4335"),
-            Color.parseColor("#FBBC05"),
-            Color.parseColor("#34A853")
+            Color.parseColor("#8BB4F6"), // 0: Ethereal Cobalt (Bloom Aura & Primary Theme)
+            Color.parseColor("#A78BFA"), // 1: Electric Purple (Subconscious Turing Core)
+            Color.parseColor("#4285F4"), // 2: Google Blue
+            Color.parseColor("#EA4335"), // 3: Google Red
+            Color.parseColor("#FBBC05"), // 4: Google Yellow
+            Color.parseColor("#34A853")  // 5: Google Green
         )
-
-        // Default neutral star glow matches Ethereal Off-White Cobalt (#8BB4F6) from the App Icon & HUD
-        private val colorCobaltGlow = Color.parseColor("#8BB4F6")
         
         // Target and Current colors for smooth transitions
         private var targetColors: IntArray = defaultColors.copyOf()
@@ -202,13 +200,7 @@ class AvatarWallpaperService : WallpaperService() {
                     canvas.restore()
                     
                     // Multi-pass bloom glow — Ethereal Cobalt aura (matching app icon & HUD theme)
-                    // If music album art colors are active, blend smoothly with extracted palette
-                    val isDefaultPalette = currentColors.contentEquals(defaultColors)
-                    val glowColor = if (isDefaultPalette) {
-                        colorCobaltGlow
-                    } else {
-                        ColorUtils.blendARGB(colorCobaltGlow, currentColors[0], 0.7f)
-                    }
+                    val glowColor = currentColors[0]
                     val bassBoost = smoothedBass * 1.5f
                     val baseStarSize = 1200f 
                     val bloomSizes   = floatArrayOf(
@@ -217,7 +209,7 @@ class AvatarWallpaperService : WallpaperService() {
                         baseStarSize + 150f + bassBoost, 
                         baseStarSize + 50f + bassBoost
                     )
-                    val bloomAlphas  = intArrayOf(18, 32, 52, 80)
+                    val bloomAlphas  = intArrayOf(35, 60, 95, 140)
                     
                     logoPaint.color = glowColor
                     logoPaint.clearShadowLayer()
@@ -250,10 +242,12 @@ class AvatarWallpaperService : WallpaperService() {
             paint.strokeWidth = 8f
             paint.clearShadowLayer()
             
-            for (c in currentColors.indices) {
+            // Loop through the inner spectrum (Purple Turing core -> Blue -> Red -> Yellow -> Green)
+            for (c in 1 until currentColors.size) {
                 val color = currentColors[c]
+                val idx = c - 1
                 paint.color = color
-                paint.alpha = max(0, 220 - (c * 15))
+                paint.alpha = max(0, 220 - (idx * 20))
                 
                 val path = Path()
                 for (i in 0..numPoints) {
@@ -266,7 +260,7 @@ class AvatarWallpaperService : WallpaperService() {
                         Math.hypot(r.toDouble(), i_comp.toDouble()).toFloat()
                     } else 0f
                     
-                    val rOffset = mag * 5f + (c * 45f)
+                    val rOffset = mag * 5f + (idx * 45f)
                     val r = currentRadius + rOffset
                     
                     val x = cos(angle) * r
@@ -286,8 +280,9 @@ class AvatarWallpaperService : WallpaperService() {
             paint.style = Paint.Style.STROKE
             paint.clearShadowLayer()
             
+            val spectrumSize = (currentColors.size - 1).coerceAtLeast(1)
             for (i in 0 until 7) {
-                val color = currentColors[i % currentColors.size]
+                val color = currentColors[1 + (i % spectrumSize)]
                 paint.color = color
                 paint.strokeWidth = 20f + (smoothedIntensity / 8f) - (i * 1.5f)
                 
