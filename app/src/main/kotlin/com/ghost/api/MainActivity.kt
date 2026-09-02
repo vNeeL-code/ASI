@@ -509,16 +509,16 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         val radioGroup = RadioGroup(this).apply {
             orientation = RadioGroup.HORIZONTAL
         }
-        val backends = listOf("AUTO", "CPU", "GPU", "NPU", "OFF")
+        val backends = listOf("AUTO", "CPU", "GPU", "OFF")
         for (backend in backends) {
             radioGroup.addView(RadioButton(this).apply {
                 text = backend
-                textSize = 11f
+                textSize = 12f
                 setTextColor(Color.WHITE)
                 buttonTintList = ColorStateList.valueOf(accentColor)
                 isChecked = (backend == currentBackend)
                 id = View.generateViewId()
-                setPadding(0, 0, 16, 0)
+                setPadding(0, 0, 20, 0)
             })
         }
         radioGroup.setOnCheckedChangeListener { group, checkedId ->
@@ -551,7 +551,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         }
         addActionRow("Clear Safe Mode") {
             GemmaService.instance?.resetRecoveryState()
-            Toast.makeText(this, "Safe mode cleared — GPU/NPU restored", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Safe mode cleared — GPU performance restored", Toast.LENGTH_SHORT).show()
         }
         addActionRow("Trigger Diary Log Now") {
             GemmaService.instance?.startDiaryCycle()
