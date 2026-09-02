@@ -212,10 +212,26 @@ fun ChatMessageRow(message: ChatMessage, onToggleThinking: () -> Unit) {
     val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
     val timeStr = timeFormat.format(Date(message.timestamp))
     
+    val context = LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+
+    val rawDeviceName = remember(context) {
+        try {
+            android.provider.Settings.Global.getString(context.contentResolver, android.provider.Settings.Global.DEVICE_NAME)
+                ?: android.provider.Settings.Secure.getString(context.contentResolver, "bluetooth_name")
+                ?: android.provider.Settings.Global.getString(context.contentResolver, "device_name")
+                ?: "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
+        } catch (e: Exception) {
+            "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
+        }
+    }
+    val cleanDeviceName = remember(rawDeviceName) { rawDeviceName.removePrefix("✧").trim() }
+    val aiHeaderTag = remember(cleanDeviceName) { "✧ $cleanDeviceName" }
+
     val finalDisplayContent = if (isUser) {
         "$displayContent\n\n[$timeStr]"
     } else {
-        "✧ Gemma:\n$displayContent\n\n[$timeStr]"
+        "$aiHeaderTag:\n$displayContent\n\n[$timeStr]"
     }
     
     val alignment = if (isUser) Alignment.End else Alignment.Start
@@ -245,12 +261,10 @@ fun ChatMessageRow(message: ChatMessage, onToggleThinking: () -> Unit) {
     val ucfFormattedContent = if (isUser) {
         "Δ 🦑 ∇:\n$displayContent\n\n[$timeStr]"
     } else {
-        "✧ Gemma:\n$displayContent\n\n[$timeStr]"
+        "$aiHeaderTag:\n$displayContent\n\n[$timeStr]"
     }
 
     var showThinking by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
     Column(
         modifier = Modifier

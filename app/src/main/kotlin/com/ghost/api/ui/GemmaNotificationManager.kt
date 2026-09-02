@@ -103,9 +103,20 @@ class GemmaNotificationManager(private val context: Context) {
         val cleanResponse = response.replace(Regex("<\\|channel>thought.*?<channel\\|>", RegexOption.DOT_MATCHES_ALL), "").trim()
         val shortResponse = cleanResponse.take(200)
 
+        val rawDeviceName = try {
+            android.provider.Settings.Global.getString(context.contentResolver, android.provider.Settings.Global.DEVICE_NAME)
+                ?: android.provider.Settings.Secure.getString(context.contentResolver, "bluetooth_name")
+                ?: android.provider.Settings.Global.getString(context.contentResolver, "device_name")
+                ?: "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
+        } catch (e: Exception) {
+            "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
+        }
+        val cleanDeviceName = rawDeviceName.removePrefix("✧").trim()
+        val notifTitle = "✧ $cleanDeviceName:"
+
         val notification = NotificationCompat.Builder(context, STATUS_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_chat)
-            .setContentTitle("✧ Gemma:")
+            .setContentTitle(notifTitle)
             .setContentText(shortResponse)
             .setStyle(NotificationCompat.BigTextStyle().bigText(cleanResponse))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
