@@ -100,15 +100,16 @@ class VoiceInputController(
         haptic()
         voiceState = VoiceState.RECORDING
         pendingAudio = null
+        inputField.hint = "Recording... tap to cancel"
+        inputField.setHintTextColor(colorRecording)
+        inputField.isEnabled = true
         syncButton()
-        updateSparkle(recording = true)
 
         recordingJob = CoroutineScope(Dispatchers.Main).launch {
             Timber.i("VoiceInputController: Recording up to 30s...")
             val audio: ByteArray? = withContext(Dispatchers.IO) {
                 audioRecorder.record(30, false)
             }
-            updateSparkle(recording = false)
             if (audio != null && audio.isNotEmpty()) {
                 Timber.i("VoiceInputController: ${audio.size} bytes recorded")
                 transitionToConfirm(audio)
@@ -129,12 +130,10 @@ class VoiceInputController(
         pendingAudio = audio
         voiceState = VoiceState.CONFIRM
         haptic()
-        syncButton()
-        // Keep field enabled so a tap can cancel — hint explains both options
         inputField.hint = "Send OK  ·  tap here to cancel"
         inputField.setHintTextColor(colorConfirm)
         inputField.isEnabled = true
-        startPulse()
+        syncButton()
     }
 
     private fun sendAudio() {
@@ -161,24 +160,29 @@ class VoiceInputController(
                 micButton.text = "➤"
                 micButton.setTextColor(colorSend)
                 micButton.alpha = 1f
+                sparkleOrNull?.setTextColor(colorIdle)
+                stopPulse()
             }
             voiceState == VoiceState.RECORDING -> {
-                // Recording: electric purple circle
+                // Recording: electric purple circle & sparkle
                 micButton.text = CIRCLE
                 micButton.setTextColor(colorRecording)
-                micButton.alpha = 1f
+                sparkleOrNull?.setTextColor(colorRecording)
+                startPulse()
             }
             voiceState == VoiceState.CONFIRM -> {
-                // Confirm: orange circle, pulsing
+                // Confirm: amber / safety orange circle & sparkle
                 micButton.text = CIRCLE
                 micButton.setTextColor(colorConfirm)
-                micButton.alpha = 1f
+                sparkleOrNull?.setTextColor(colorConfirm)
+                startPulse()
             }
             else -> {
-                // Idle: ethereal cobalt circle
+                // Idle: ethereal cobalt circle & sparkle
                 micButton.text = CIRCLE
                 micButton.setTextColor(colorIdle)
-                micButton.alpha = 0.85f
+                sparkleOrNull?.setTextColor(colorIdle)
+                stopPulse()
             }
         }
     }
@@ -191,7 +195,6 @@ class VoiceInputController(
         inputField.hint = "Δ \uD83D\uDC7E ∇"
         inputField.setHintTextColor(Color.parseColor("#66FFFFFF"))
         inputField.isEnabled = true
-        updateSparkle(recording = false)
         syncButton()
     }
 
@@ -206,37 +209,23 @@ class VoiceInputController(
         pulseAnimator?.cancel()
     }
 
-    // ── Sparkle visual feedback (overlay bar) ─────────────────────────────
-
-    private fun updateSparkle(recording: Boolean) {
-        if (recording) {
-            sparkleOrNull?.setTextColor(colorRecording)
-            startPulse()
-            inputField.hint = "Recording... tap to cancel"
-            inputField.setHintTextColor(colorRecording)
-            inputField.isEnabled = true
-        } else {
-            sparkleOrNull?.setTextColor(colorIdle)
-            stopPulse()
-            inputField.hint = "Δ \uD83D\uDC7E ∇"
-            inputField.setHintTextColor(Color.parseColor("#66FFFFFF"))
-            inputField.isEnabled = true
-        }
-    }
-
     private fun startPulse() {
-        val target = (sparkleOrNull ?: micButton)
         pulseAnimator?.cancel()
-        pulseAnimator = ObjectAnimator.ofFloat(target, "alpha", 1f, 0.3f, 1f).apply {
+        pulseAnimator = ObjectAnimator.ofFloat(micButton, "alpha", 1f, 0.3f, 1f).apply {
             duration = 600
             repeatCount = ValueAnimator.INFINITE
+            addUpdateListener {
+                val alphaVal = it.animatedValue as Float
+                sparkleOrNull?.alpha = alphaVal
+            }
             start()
         }
     }
 
     private fun stopPulse() {
         pulseAnimator?.cancel()
-        (sparkleOrNull ?: micButton).alpha = 1f
+        micButton.alpha = 1f
+        sparkleOrNull?.alpha = 1f
     }
 
     private fun haptic() {

@@ -404,10 +404,15 @@ fun InputBar(
         } else {
             Text(
                 text = "✧",
-                color = Color(0xFF8BB4F6),
+                color = when (voiceState) {
+                    VoiceState.RECORDING -> colorRecording
+                    VoiceState.CONFIRM -> colorConfirm
+                    else -> colorIdle
+                },
                 fontSize = 26.sp,
                 modifier = Modifier
                     .size(44.dp)
+                    .alpha(if (voiceState == VoiceState.RECORDING || voiceState == VoiceState.CONFIRM) pulseAlpha else 1f)
                     .clickable { onPickImage() }
                     .padding(4.dp),
                 textAlign = TextAlign.Center
