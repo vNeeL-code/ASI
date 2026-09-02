@@ -44,14 +44,8 @@ class AvatarWallpaperService : WallpaperService() {
             Color.parseColor("#34A853")  // 4: Google Green
         )
 
-        // Multi-pass neutral dispersion gradient (Outermost -> Innermost closest to star)
-        // High-chroma saturated Cobalt spectrum so alpha blending over black remains vibrant blue
-        private val neutralBloomGradient = intArrayOf(
-            Color.parseColor("#6366F1"), // 0: Outer (+500px): Deep Indigo Cobalt
-            Color.parseColor("#3B82F6"), // 1: Mid-Outer (+300px): Classic Electric Blue
-            Color.parseColor("#60A5FA"), // 2: Mid-Inner (+150px): Electric Cobalt
-            Color.parseColor("#8BB4F6")  // 3: Inner (+50px): Ethereal Cobalt Halo
-        )
+        // Default neutral star glow matches Ethereal Off-White Cobalt (#8BB4F6) from the App Icon & HUD Sparkle
+        private val colorCobaltGlow = Color.parseColor("#8BB4F6")
         private var isCustomPaletteActive = false
         
         // Target and Current colors for smooth transitions
@@ -210,34 +204,22 @@ class AvatarWallpaperService : WallpaperService() {
                     
                     canvas.restore()
                     
-                    // Multi-pass Chromatic Dispersion Bloom
+                    // Multi-pass bloom glow — Ethereal Cobalt (#8BB4F6) when idle, dynamic album color when music plays
+                    val rawGlowColor = if (isCustomPaletteActive) currentColors[0] else colorCobaltGlow
+                    val glowColor = ensureVisibleBloomColor(rawGlowColor, colorCobaltGlow)
                     val bassBoost = smoothedBass * 1.5f
                     val baseStarSize = 1200f 
                     val bloomSizes   = floatArrayOf(
-                        baseStarSize + 500f + bassBoost, // 0: Outermost Corona
-                        baseStarSize + 300f + bassBoost, // 1: Mid-Outer Halo
-                        baseStarSize + 150f + bassBoost, // 2: Mid-Inner Aura
-                        baseStarSize + 50f + bassBoost   // 3: Inner (Closest to Star)
+                        baseStarSize + 500f + bassBoost, 
+                        baseStarSize + 300f + bassBoost, 
+                        baseStarSize + 150f + bassBoost, 
+                        baseStarSize + 50f + bassBoost
                     )
-                    val bloomAlphas  = intArrayOf(25, 45, 75, 115)
+                    val bloomAlphas  = intArrayOf(35, 60, 95, 140)
                     
+                    logoPaint.color = glowColor
                     logoPaint.clearShadowLayer()
                     for (i in bloomSizes.indices) {
-                        val layerColor = if (isCustomPaletteActive) {
-                            // Map to album swatches: [3]=Vibrant, [2]=Dominant, [1]=Muted, [0]=DarkVibrant
-                            val swatchIndex = when (i) {
-                                3 -> 1 % currentColors.size // Vibrant core
-                                2 -> 0 % currentColors.size // Dominant body
-                                1 -> 2 % currentColors.size // Muted
-                                else -> 3 % currentColors.size // Dark Vibrant / Deep
-                            }
-                            val rawColor = currentColors[swatchIndex]
-                            ensureVisibleBloomColor(rawColor, neutralBloomGradient[i])
-                        } else {
-                            neutralBloomGradient[i]
-                        }
-
-                        logoPaint.color = layerColor
                         logoPaint.textSize = bloomSizes[i]
                         logoPaint.alpha    = bloomAlphas[i]
                         val off = (logoPaint.descent() + logoPaint.ascent()) / 2f
