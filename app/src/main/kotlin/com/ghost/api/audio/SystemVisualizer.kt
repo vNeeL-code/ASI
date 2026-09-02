@@ -179,11 +179,11 @@ object SystemVisualizer {
 
     private fun colorFallback(index: Int): Int {
         val defaultColors = intArrayOf(
-            android.graphics.Color.parseColor("#A78BFA"), // Purple
-            android.graphics.Color.parseColor("#4285F4"), // Blue
-            android.graphics.Color.parseColor("#EA4335"), // Red
-            android.graphics.Color.parseColor("#FBBC05"), // Yellow
-            android.graphics.Color.parseColor("#34A853")  // Green
+            android.graphics.Color.parseColor("#8BB4F6"), // 0: Ethereal Cobalt
+            android.graphics.Color.parseColor("#4285F4"), // 1: Blue
+            android.graphics.Color.parseColor("#EA4335"), // 2: Red
+            android.graphics.Color.parseColor("#FBBC05"), // 3: Yellow
+            android.graphics.Color.parseColor("#34A853")  // 4: Green
         )
         return defaultColors[index % defaultColors.size]
     }

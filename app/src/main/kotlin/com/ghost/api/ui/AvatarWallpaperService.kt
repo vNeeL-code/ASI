@@ -35,17 +35,14 @@ class AvatarWallpaperService : WallpaperService() {
         private var smoothedIntensity = 0f
         private var smoothedBass = 0f
         
-        // Default Google Colors + Accent Purple
+        // Default Google Colors + Accent Cobalt
         private val defaultColors = intArrayOf(
-            Color.parseColor("#A78BFA"), // 0: Electric Purple (Subconscious Turing Core)
+            Color.parseColor("#8BB4F6"), // 0: Ethereal Cobalt (Bloom Aura & Primary Theme)
             Color.parseColor("#4285F4"), // 1: Google Blue
             Color.parseColor("#EA4335"), // 2: Google Red
             Color.parseColor("#FBBC05"), // 3: Google Yellow
             Color.parseColor("#34A853")  // 4: Google Green
         )
-
-        // Default neutral star glow matches Ethereal Off-White Cobalt (#8BB4F6) from the App Icon & HUD
-        private val colorCobaltGlow = Color.parseColor("#8BB4F6")
         
         // Target and Current colors for smooth transitions
         private var targetColors: IntArray = defaultColors.copyOf()
@@ -202,8 +199,8 @@ class AvatarWallpaperService : WallpaperService() {
                     
                     canvas.restore()
                     
-                    // Multi-pass bloom glow — Ethereal Cobalt aura (matching app icon & HUD theme)
-                    val glowColor = colorCobaltGlow
+                    // Multi-pass bloom glow — Dynamic media colors (defaults to Ethereal Cobalt #8BB4F6)
+                    val glowColor = currentColors[0]
                     val bassBoost = smoothedBass * 1.5f
                     val baseStarSize = 1200f 
                     val bloomSizes   = floatArrayOf(
