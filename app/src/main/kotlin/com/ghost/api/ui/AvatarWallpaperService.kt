@@ -45,12 +45,12 @@ class AvatarWallpaperService : WallpaperService() {
         )
 
         // Multi-pass neutral dispersion gradient (Outermost -> Innermost closest to star)
-        // High-luminance ethereal off-white cobalt tones for soft, luminous atmospheric bloom
+        // High-chroma saturated Cobalt spectrum so alpha blending over black remains vibrant blue
         private val neutralBloomGradient = intArrayOf(
-            Color.parseColor("#93C5FD"), // 0: Outer (+500px): Luminous Ethereal Sky
-            Color.parseColor("#BFDBFE"), // 1: Mid-Outer (+300px): Soft Atmospheric Cobalt
-            Color.parseColor("#DBEAFE"), // 2: Mid-Inner (+150px): Pastel Ice Cobalt
-            Color.parseColor("#EFF6FF")  // 3: Inner (+50px): Crisp Luminous Off-White
+            Color.parseColor("#6366F1"), // 0: Outer (+500px): Deep Indigo Cobalt
+            Color.parseColor("#3B82F6"), // 1: Mid-Outer (+300px): Classic Electric Blue
+            Color.parseColor("#60A5FA"), // 2: Mid-Inner (+150px): Electric Cobalt
+            Color.parseColor("#8BB4F6")  // 3: Inner (+50px): Ethereal Cobalt Halo
         )
         private var isCustomPaletteActive = false
         
@@ -219,7 +219,7 @@ class AvatarWallpaperService : WallpaperService() {
                         baseStarSize + 150f + bassBoost, // 2: Mid-Inner Aura
                         baseStarSize + 50f + bassBoost   // 3: Inner (Closest to Star)
                     )
-                    val bloomAlphas  = intArrayOf(20, 36, 60, 95)
+                    val bloomAlphas  = intArrayOf(25, 45, 75, 115)
                     
                     logoPaint.clearShadowLayer()
                     for (i in bloomSizes.indices) {
