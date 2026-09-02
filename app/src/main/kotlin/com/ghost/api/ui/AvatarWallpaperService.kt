@@ -204,22 +204,37 @@ class AvatarWallpaperService : WallpaperService() {
                     
                     canvas.restore()
                     
-                    // Multi-pass bloom glow — Ethereal Cobalt (#8BB4F6) when idle, dynamic album color when music plays
-                    val rawGlowColor = if (isCustomPaletteActive) currentColors[0] else colorCobaltGlow
-                    val glowColor = ensureVisibleBloomColor(rawGlowColor, colorCobaltGlow)
+                    // Multi-pass bloom glow:
+                    // 1. When IDLE: Pure, deterministic single-tone Ethereal Cobalt (#8BB4F6) across all passes
+                    // 2. When PLAYING MUSIC: Dynamic multi-layer album art swatch extraction (Vibrant, Dominant, Muted, DarkVibrant)
                     val bassBoost = smoothedBass * 1.5f
                     val baseStarSize = 1200f 
                     val bloomSizes   = floatArrayOf(
-                        baseStarSize + 500f + bassBoost, 
-                        baseStarSize + 300f + bassBoost, 
-                        baseStarSize + 150f + bassBoost, 
-                        baseStarSize + 50f + bassBoost
+                        baseStarSize + 500f + bassBoost, // 0: Outermost Corona
+                        baseStarSize + 300f + bassBoost, // 1: Mid-Outer Halo
+                        baseStarSize + 150f + bassBoost, // 2: Mid-Inner Aura
+                        baseStarSize + 50f + bassBoost   // 3: Inner (Closest to Star)
                     )
                     val bloomAlphas  = intArrayOf(35, 60, 95, 140)
                     
-                    logoPaint.color = glowColor
                     logoPaint.clearShadowLayer()
                     for (i in bloomSizes.indices) {
+                        val layerColor = if (isCustomPaletteActive) {
+                            // Extract multi-swatch palette from album art
+                            val swatchIndex = when (i) {
+                                3 -> 1 % currentColors.size // Vibrant
+                                2 -> 0 % currentColors.size // Dominant
+                                1 -> 2 % currentColors.size // Muted
+                                else -> 3 % currentColors.size // Dark Vibrant
+                            }
+                            val rawColor = currentColors[swatchIndex]
+                            ensureVisibleBloomColor(rawColor, colorCobaltGlow)
+                        } else {
+                            // Default idle state: Pure deterministic Ethereal Cobalt (#8BB4F6)
+                            colorCobaltGlow
+                        }
+
+                        logoPaint.color = layerColor
                         logoPaint.textSize = bloomSizes[i]
                         logoPaint.alpha    = bloomAlphas[i]
                         val off = (logoPaint.descent() + logoPaint.ascent()) / 2f
