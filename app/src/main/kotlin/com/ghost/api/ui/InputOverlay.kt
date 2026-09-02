@@ -41,7 +41,7 @@ class InputOverlay(
     private val colorSurface = Color.parseColor("#CC121212") // Glassy dark
     private val colorSurfaceVariant = Color.parseColor("#33FFFFFF") // Subtle border
     private val colorOnSurface = Color.WHITE
-    private val colorAccent = Color.parseColor("#A78BFA")  // Vibrant Purple
+    private val colorAccent = Color.parseColor("#8BB4F6")  // Ethereal Off-White Holographic Cobalt
     private val colorThinking = Color.parseColor("#F59E0B") // Amber
     private val colorRecording = Color.parseColor("#EF4444")  // Red-Pulse
 
@@ -69,6 +69,14 @@ class InputOverlay(
             gravity = Gravity.CENTER
         }
 
+        val metrics = context.resources.displayMetrics
+        val isLandscape = metrics.widthPixels > metrics.heightPixels
+        val barWidth = if (isLandscape) {
+            dpToPx(240).coerceAtMost((metrics.widthPixels * 0.45f).toInt())
+        } else {
+            (metrics.widthPixels * 0.92f).toInt().coerceAtMost(dpToPx(380))
+        }
+
         // Main Bar (Horizontal)
         val bar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -76,12 +84,10 @@ class InputOverlay(
             background = createBarBackground()
             elevation = dpToPx(4).toFloat()
             layoutParams = LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dpToPx(52)
+                barWidth,
+                dpToPx(48)
             ).apply {
                 gravity = Gravity.CENTER
-                marginStart = dpToPx(16)
-                marginEnd = dpToPx(16)
             }
             setPadding(dpToPx(8), dpToPx(4), dpToPx(12), dpToPx(4))
         }
@@ -185,7 +191,7 @@ class InputOverlay(
 
         // Voice / Send button — wired to VoiceInputController
         voiceSendButton = TextView(context).apply {
-            text = "🟣"
+            text = "🔵"
             textSize = 20f
             setTextColor(colorAccent)
             gravity = Gravity.CENTER
@@ -235,17 +241,17 @@ class InputOverlay(
         val isLandscape = screenW > screenH
         val heightDp = screenH / metrics.density
 
-        // Adaptive scaling for landscape, compact viewports, and foldables
+        // In landscape, scale vertically and spread horizontally to clear the compact center pill
         val verticalScale = if (isLandscape || heightDp < 600) {
-            (heightDp / 850f).coerceIn(0.58f, 1.0f)
+            (heightDp / 850f).coerceIn(0.52f, 0.85f)
         } else {
             1.0f
         }
-        val horizontalSpread = if (isLandscape) 1.25f else 1.0f
+        val horizontalSpread = if (isLandscape) 1.55f else 1.0f
 
-        val horizontalOffset = (dpToPx(90) * horizontalSpread * (if (isLandscape) 0.9f else 1.0f)).toInt()
+        val horizontalOffset = (dpToPx(90) * horizontalSpread).toInt()
         val verticalOffset = (dpToPx(105) * verticalScale).toInt()
-        val apexVerticalOffset = (dpToPx(182) * verticalScale).toInt()
+        val apexVerticalOffset = (dpToPx(175) * verticalScale).toInt()
 
         // 1. Top Apex Vertex: Orange (CS:GO Tape Reel Launcher)
         setupTopOrangeButton(0f, -apexVerticalOffset.toFloat())

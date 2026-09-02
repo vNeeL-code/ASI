@@ -310,7 +310,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         }
         root.addView(container)
 
-        val accentColor = Color.parseColor("#A78BFA")
+        val accentColor = Color.parseColor("#8BB4F6")
         val dimTextColor = Color.parseColor("#99FFFFFF")
         val dividerColor = Color.parseColor("#1AFFFFFF")
 
@@ -542,14 +542,14 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(Color.parseColor("#141418"))
                 cornerRadius = 32f
-                setStroke(1, Color.parseColor("#4DA78BFA"))
+                setStroke(1, Color.parseColor("#4D8BB4F6"))
             }
         }
 
         val titleView = TextView(this).apply {
             text = "🎓 GHOST Tutorial Programme"
             textSize = 16f
-            setTextColor(Color.parseColor("#A78BFA"))
+            setTextColor(Color.parseColor("#8BB4F6"))
             setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(0, 0, 0, 8)
         }
@@ -656,7 +656,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         container.addView(TextView(this).apply {
             text = "✧ Gemma Diary Logs (${validEntries.size})"
             textSize = 16f
-            setTextColor(Color.parseColor("#A78BFA"))
+            setTextColor(Color.parseColor("#8BB4F6"))
             letterSpacing = 0.1f
             setPadding(0, 0, 0, 24)
         })
@@ -691,9 +691,9 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                 }
 
                 card.addView(TextView(this).apply {
-                    text = "✧ DREAM • $dateStr"
+                    text = "Δ 👾 ∇ • $dateStr"
                     textSize = 11f
-                    setTextColor(Color.parseColor("#A78BFA"))
+                    setTextColor(Color.parseColor("#8BB4F6"))
                     setPadding(0, 0, 0, 8)
                 })
 

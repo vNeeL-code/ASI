@@ -45,10 +45,10 @@ class VoiceInputController(
     private var recordingJob: Job? = null
     private var pulseAnimator: ObjectAnimator? = null
 
-    private val colorIdle      = Color.parseColor("#8B5CF6") // lavender purple — matches sparkle
+    private val colorIdle      = Color.parseColor("#8BB4F6") // ethereal off-white cobalt — matches sparkle & app icon
     private val colorRecording = Color.parseColor("#EF4444") // red — active recording
     private val colorConfirm   = Color.parseColor("#F97316") // orange — confirm/send
-    private val colorSend      = Color.parseColor("#8B5CF6") // purple — send arrow reuses idle tint
+    private val colorSend      = Color.parseColor("#60A5FA") // electric cobalt — send arrow
 
     private val CIRCLE = "\u2B24" // ⬤ U+2B24 BLACK LARGE CIRCLE — tintable, matches sparkle style
 
