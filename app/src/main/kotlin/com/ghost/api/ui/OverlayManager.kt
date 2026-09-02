@@ -137,6 +137,24 @@ class OverlayManager(private val context: Context) {
             }
         }
 
+        // Add AppReel beneath InputOverlay in WindowManager so Orange Star takes Z-order priority
+        try {
+            val wm = windowManager
+            if (wm != null) {
+                val reel = AppReelOverlay(
+                    context = context,
+                    windowManager = wm,
+                    onDismiss = { hideAppReel() }
+                ).apply {
+                    visibility = View.GONE
+                }
+                appReelOverlay = reel
+                wm.addView(reel, reel.windowParams)
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to preload AppReel beneath InputOverlay")
+        }
+
         windowManager?.addView(inputOverlay, params)
         isShowing = true
 
@@ -465,18 +483,39 @@ class OverlayManager(private val context: Context) {
 
     fun showAppReel() {
         if (!canDrawOverlay()) return
-        if (appReelOverlay != null) {
-            hideAppReel()
+        val reel = appReelOverlay
+        if (reel != null) {
+            if (reel.visibility == View.VISIBLE) {
+                hideAppReel()
+            } else {
+                reel.alpha = 0f
+                reel.visibility = View.VISIBLE
+                reel.animate().alpha(1f).setDuration(160).start()
+                Timber.i("App Reel overlay opened (revealed underneath star)")
+            }
             return
         }
         try {
             val wm = windowManager ?: return
-            appReelOverlay = AppReelOverlay(
+            val newReel = AppReelOverlay(
                 context = context,
                 windowManager = wm,
                 onDismiss = { hideAppReel() }
             )
-            wm.addView(appReelOverlay, appReelOverlay?.windowParams)
+            appReelOverlay = newReel
+            wm.addView(newReel, newReel.windowParams)
+            // Re-order inputOverlay so Orange Star is on top
+            inputOverlay?.let { input ->
+                val currentParams = input.layoutParams as? WindowManager.LayoutParams
+                if (currentParams != null) {
+                    try {
+                        wm.removeView(input)
+                        wm.addView(input, currentParams)
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to re-order inputOverlay")
+                    }
+                }
+            }
             Timber.i("App Reel overlay opened")
         } catch (e: Exception) {
             Timber.e(e, "Failed to show App Reel overlay")
@@ -484,17 +523,24 @@ class OverlayManager(private val context: Context) {
     }
 
     fun hideAppReel() {
-        appReelOverlay?.let {
-            try {
-                windowManager?.removeView(it)
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to remove App Reel overlay")
+        appReelOverlay?.let { reel ->
+            if (isShowing) {
+                // Keep preloaded under layer, smoothly fade out
+                reel.animate().alpha(0f).setDuration(140).withEndAction {
+                    reel.visibility = View.GONE
+                }.start()
+            } else {
+                try {
+                    windowManager?.removeView(reel)
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to remove App Reel overlay")
+                }
+                appReelOverlay = null
             }
-            appReelOverlay = null
         }
     }
 
-    fun isAppReelVisible(): Boolean = appReelOverlay != null
+    fun isAppReelVisible(): Boolean = appReelOverlay?.visibility == View.VISIBLE
 
     fun scrubAppReel(deltaX: Float) {
         appReelOverlay?.scrubRelative(deltaX)

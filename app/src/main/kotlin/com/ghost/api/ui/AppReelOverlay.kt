@@ -124,8 +124,7 @@ class AppReelOverlay(
         val isLandscape = metrics.widthPixels > metrics.heightPixels
         val heightDp = metrics.heightPixels / metrics.density
         val reelY = if (isLandscape || heightDp < 600) {
-            val apexOffset = (dpToPx(182) * (heightDp / 850f).coerceIn(0.58f, 1.0f)).toInt()
-            -(apexOffset + dpToPx(60)).coerceAtMost((metrics.heightPixels / 2) - dpToPx(50))
+            -dpToPx(162)
         } else {
             -dpToPx(320)
         }
