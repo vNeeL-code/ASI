@@ -853,7 +853,12 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             return@withLock "System is still initializing. Please wait a moment and try again."
         }
 
-        if (!isDream) markActivity()
+        if (!isDream) {
+            markActivity()
+            if (::ttsManager.isInitialized) {
+                ttsManager.stop()
+            }
+        }
 
         isInferencing = true
         try {

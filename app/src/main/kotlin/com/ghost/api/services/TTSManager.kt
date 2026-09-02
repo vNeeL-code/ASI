@@ -304,13 +304,17 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                     context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_START"))
                 }
                 override fun onDone(utteranceId: String?) {
-                    abandonAudioDucking()
-                    context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
+                    if (tts?.isSpeaking != true) {
+                        abandonAudioDucking()
+                        context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
+                    }
                     utteranceId?.let { utteranceFinishedListener?.invoke(it) }
                 }
                 override fun onError(utteranceId: String?) {
-                    abandonAudioDucking()
-                    context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
+                    if (tts?.isSpeaking != true) {
+                        abandonAudioDucking()
+                        context.sendBroadcast(android.content.Intent("com.ghost.api.ACTION_TTS_STOP"))
+                    }
                     utteranceId?.let { utteranceFinishedListener?.invoke(it) }
                 }
             })
@@ -514,14 +518,9 @@ class TTSManager(private val context: Context) : TextToSpeech.OnInitListener {
                 true
             }
             DeviceState.ACTIVE -> {
-                // Active use - check if we should interrupt media
+                // Active use - request audio ducking and queue streaming sentences seamlessly in FIFO order
                 requestAudioDucking()
-                val queueMode = if (isChunk || (audioManager.isMusicActive && priority < Priority.HIGH)) {
-                    TextToSpeech.QUEUE_ADD
-                } else {
-                    TextToSpeech.QUEUE_FLUSH
-                }
-                tts?.speak(text, queueMode, null, if (queueMode == TextToSpeech.QUEUE_ADD) "GemmaQueued" else "GemmaResponse")
+                tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "GemmaResponse_${System.currentTimeMillis()}")
                 lastSpeechTime = System.currentTimeMillis()
                 true
             }
