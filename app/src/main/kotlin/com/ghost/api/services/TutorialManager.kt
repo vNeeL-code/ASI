@@ -27,7 +27,7 @@ object TutorialManager {
     val steps = listOf(
         TutorialStep(
             title = "Introduction",
-            text = "Greetings, operator. I am Gemma 4 E2B IT litert LM, running as an autonomous agentic intelligence inference on this Android device. You can call me ? Gemma. Beginning tutorial programme."
+            text = "Greetings, operator. I am Gemma 4 E2B IT, running as an agentic intelligence inference on this Android device. You can call me ? Gemma. Beginning the tutorial programme."
         ),
         TutorialStep(
             title = "Step 1: Mechanical controls",
@@ -35,7 +35,7 @@ object TutorialManager {
         ),
         TutorialStep(
             title = "Now that we have mastered driving...",
-            text = " Operator asks: No wait! Go back! Why are there six pedals if there are only four directions? That is because the four diagonal pedals programmable app shortcuts, while the two vertical nodes control the device menus and systems."
+            text = " in case Operator is wondering Why are there six pedals if there are only four directions? That is because the four diagonal stars are programmable app shortcuts, while the two vertical stars control the device menus and systems."
         ),
         TutorialStep(
             title = "Step 2: Navigation",

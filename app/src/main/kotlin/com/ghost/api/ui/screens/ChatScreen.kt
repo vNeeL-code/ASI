@@ -369,9 +369,10 @@ fun InputBar(
         label = "pulseAlpha"
     )
 
-    val colorIdle = Color(0xFF8B5CF6)      // Lavender purple — matching sparkle style
-    val colorRecording = Color(0xFFEF4444) // Red — active recording
+    val colorIdle = Color(0xFF8BB4F6)      // Ethereal Off-white cobalt — matching sparkle & app icon
+    val colorRecording = Color(0xFFA78BFA) // Electric Purple — active recording pulse & hint
     val colorConfirm = Color(0xFFF97316)   // Orange — confirm / send
+    val colorSend = Color(0xFF60A5FA)      // Electric Cobalt — send arrow
 
     // U+2B24 BLACK LARGE CIRCLE ⬤ — standard tintable circle matching VoiceInputController
     val CIRCLE_GLYPH = "\u2B24"
@@ -403,7 +404,7 @@ fun InputBar(
         } else {
             Text(
                 text = "✧",
-                color = Color(0xFFA78BFA),
+                color = Color(0xFF8BB4F6),
                 fontSize = 26.sp,
                 modifier = Modifier
                     .size(44.dp)
@@ -443,7 +444,7 @@ fun InputBar(
                     if (text.isEmpty()) {
                         val hint = when {
                             attachedImage != null -> "[📎 Image attached - type prompt]"
-                            voiceState == VoiceState.RECORDING -> "Recording... tap to finish"
+                            voiceState == VoiceState.RECORDING -> "Recording... tap to cancel"
                             voiceState == VoiceState.CONFIRM -> "Send OK  ·  tap here to cancel"
                             else -> "Δ 👾 ∇"
                         }
@@ -461,10 +462,10 @@ fun InputBar(
         
         // Right Action Button (Dynamic State Machine: Text Send / Voice Record / Confirm Send)
         if (text.isNotBlank()) {
-            // Text is ready: Purple send arrow
+            // Text is ready: Electric cobalt send arrow
             Text(
                 text = "➤",
-                color = colorIdle,
+                color = colorSend,
                 fontSize = 22.sp,
                 modifier = Modifier
                     .size(44.dp)

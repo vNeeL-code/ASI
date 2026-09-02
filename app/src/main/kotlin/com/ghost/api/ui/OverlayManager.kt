@@ -116,17 +116,20 @@ class OverlayManager(private val context: Context) {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             // Use physical screen height from WindowManager — NOT context.resources.displayMetrics
             // which tracks the app *window* size and drifts when bubbles/freeform windows resize.
-            val screenHeight = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                windowManager!!.currentWindowMetrics.bounds.height()
+            val (screenHeight, screenWidth) = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                val bounds = windowManager!!.currentWindowMetrics.bounds
+                bounds.height() to bounds.width()
             } else {
                 val dm = android.util.DisplayMetrics()
                 @Suppress("DEPRECATION")
                 windowManager!!.defaultDisplay.getRealMetrics(dm)
-                dm.heightPixels
+                dm.heightPixels to dm.widthPixels
             }
+            val isLandscape = screenWidth > screenHeight
             val windowHeight = dpToPx(520)
-            // Centered vertically minus ergonomic offset
-            y = (screenHeight - windowHeight) / 2 - dpToPx(15)
+            // Centered vertically minus ergonomic offset (shift higher up in landscape mode to clear bottom edge)
+            val verticalShift = if (isLandscape) dpToPx(52) else dpToPx(15)
+            y = (screenHeight - windowHeight) / 2 - verticalShift
         }
 
         windowManager?.addView(inputOverlay, params)

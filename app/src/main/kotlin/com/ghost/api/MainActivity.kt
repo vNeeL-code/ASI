@@ -316,7 +316,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
 
         // === SECTION: Title ===
         container.addView(TextView(this).apply {
-            text = "✧ GHOST Settings"
+            text = "✧ Settings"
             textSize = 16f
             setTextColor(accentColor)
             letterSpacing = 0.1f
