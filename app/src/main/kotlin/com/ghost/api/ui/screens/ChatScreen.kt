@@ -448,9 +448,9 @@ fun InputBar(
                 decorationBox = { innerTextField ->
                     if (text.isEmpty()) {
                         val hint = when {
-                            attachedImage != null -> "[📎 Image attached - type prompt]"
-                            voiceState == VoiceState.RECORDING -> "Recording... tap to cancel"
-                            voiceState == VoiceState.CONFIRM -> "Send OK  ·  tap here to cancel"
+                            attachedImage != null -> "[📎 Image attached ]"
+                            voiceState == VoiceState.RECORDING -> "Recording..."
+                            voiceState == VoiceState.CONFIRM -> "Send or tap here to cancel"
                             else -> "Δ 👾 ∇"
                         }
                         val hintColor = when (voiceState) {

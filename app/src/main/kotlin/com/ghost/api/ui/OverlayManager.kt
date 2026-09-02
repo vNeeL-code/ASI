@@ -124,11 +124,13 @@ class OverlayManager(private val context: Context) {
             val isLandscape = screenWidth > screenHeight
             
             if (isLandscape) {
-                // True mathematical center in landscape mode
+                // In landscape, match screen height and apply upward lift so top orange touches tips with the app reel
+                height = screenHeight
                 gravity = Gravity.CENTER
-                y = -dpToPx(10) // Slight upward lift for bottom puck clearance
+                y = -dpToPx(38) // Upward lift: closes gap to app reel, pulls bottom cyan 136dp away from bottom edge
             } else {
                 // Anchor to TOP in portrait to prevent keyboard resize jumps
+                height = dpToPx(520)
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
                 val windowHeight = dpToPx(520)
                 y = (screenHeight - windowHeight) / 2 - dpToPx(15)

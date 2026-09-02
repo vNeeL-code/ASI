@@ -100,7 +100,7 @@ class VoiceInputController(
         haptic()
         voiceState = VoiceState.RECORDING
         pendingAudio = null
-        inputField.hint = "Recording... tap to cancel"
+        inputField.hint = "Recording..."
         inputField.setHintTextColor(colorRecording)
         inputField.isEnabled = true
         syncButton()
@@ -130,7 +130,7 @@ class VoiceInputController(
         pendingAudio = audio
         voiceState = VoiceState.CONFIRM
         haptic()
-        inputField.hint = "Send OK  ·  tap here to cancel"
+        inputField.hint = "Send or tap here to cancel"
         inputField.setHintTextColor(colorConfirm)
         inputField.isEnabled = true
         syncButton()
