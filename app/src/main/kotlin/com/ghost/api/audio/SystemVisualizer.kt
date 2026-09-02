@@ -130,13 +130,23 @@ object SystemVisualizer {
                 val darkVibrant = palette.getDarkVibrantColor(0)
                 val lightVibrant = palette.getLightVibrantColor(0)
                 
+                // Select best non-black primary color
+                val primary = when {
+                    dominant != 0 && !isTooDark(dominant) -> dominant
+                    vibrant != 0 && !isTooDark(vibrant) -> vibrant
+                    lightVibrant != 0 && !isTooDark(lightVibrant) -> lightVibrant
+                    muted != 0 && !isTooDark(muted) -> muted
+                    dominant != 0 -> dominant
+                    else -> colorFallback(0)
+                }
+
                 // Construct a 5-color array to match our visualizer arrays
                 val extracted = intArrayOf(
-                    if (dominant != 0) dominant else colorFallback(0),
-                    if (vibrant != 0) vibrant else if (dominant != 0) dominant else colorFallback(1),
-                    if (muted != 0) muted else if (dominant != 0) dominant else colorFallback(2),
-                    if (darkVibrant != 0) darkVibrant else if (dominant != 0) dominant else colorFallback(3),
-                    if (lightVibrant != 0) lightVibrant else if (dominant != 0) dominant else colorFallback(4)
+                    primary,
+                    if (vibrant != 0) vibrant else if (lightVibrant != 0) lightVibrant else primary,
+                    if (muted != 0) muted else primary,
+                    if (darkVibrant != 0) darkVibrant else primary,
+                    if (lightVibrant != 0) lightVibrant else primary
                 )
                 currentAlbumColors = extracted
                 if (overrideEmotionColors == null) {
@@ -144,6 +154,15 @@ object SystemVisualizer {
                 }
             }
         }
+    }
+
+    private fun isTooDark(color: Int): Boolean {
+        if (color == 0) return true
+        val r = android.graphics.Color.red(color)
+        val g = android.graphics.Color.green(color)
+        val b = android.graphics.Color.blue(color)
+        val lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+        return lum < 0.12
     }
 
     fun pushEmotionColor(emoji: String) {
