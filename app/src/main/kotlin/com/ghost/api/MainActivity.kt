@@ -509,22 +509,27 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         val radioGroup = RadioGroup(this).apply {
             orientation = RadioGroup.HORIZONTAL
         }
-        val backends = listOf("AUTO", "CPU", "GPU", "NPU")
+        val backends = listOf("AUTO", "CPU", "GPU", "NPU", "OFF")
         for (backend in backends) {
             radioGroup.addView(RadioButton(this).apply {
                 text = backend
-                textSize = 12f
+                textSize = 11f
                 setTextColor(Color.WHITE)
                 buttonTintList = ColorStateList.valueOf(accentColor)
                 isChecked = (backend == currentBackend)
                 id = View.generateViewId()
-                setPadding(0, 0, 24, 0)
+                setPadding(0, 0, 16, 0)
             })
         }
         radioGroup.setOnCheckedChangeListener { group, checkedId ->
             val selected = group.findViewById<RadioButton>(checkedId)?.text?.toString() ?: "AUTO"
             prefs.edit().putString(Constants.PREF_USER_BACKEND, selected).apply()
-            Toast.makeText(this, "Backend set to $selected — takes effect on next restart", Toast.LENGTH_SHORT).show()
+            val service = gemmaService ?: GemmaService.instance
+            if (service != null) {
+                service.reloadWithBackend(selected)
+            } else {
+                Toast.makeText(this, "Backend set to $selected (takes effect on startup)", Toast.LENGTH_SHORT).show()
+            }
         }
         container.addView(radioGroup)
 
@@ -540,9 +545,13 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         addActionRow("Tutorial Programme") {
             showTutorialDialog()
         }
+        addActionRow("Compress Session / Flush Memory") {
+            val service = gemmaService ?: GemmaService.instance
+            service?.flushSessionMemory()
+        }
         addActionRow("Clear Safe Mode") {
             GemmaService.instance?.resetRecoveryState()
-            Toast.makeText(this, "Safe mode cleared — GPU/NPU restored on next restart", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Safe mode cleared — GPU/NPU restored", Toast.LENGTH_SHORT).show()
         }
         addActionRow("Trigger Diary Log Now") {
             GemmaService.instance?.startDiaryCycle()

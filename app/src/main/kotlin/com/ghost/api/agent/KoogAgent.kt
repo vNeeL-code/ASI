@@ -185,6 +185,7 @@ class KoogAgent(
     // Stuck loop detection — if model returns same response N times, force KV flush
     private val _lastResponseHash = java.util.concurrent.atomic.AtomicInteger(0)
     private var lastResponseHash: Int get() = _lastResponseHash.get(); set(value) { _lastResponseHash.set(value) }
+    private var lastResponseText: String = ""
 
     // Tracks turns since last KV flush
     private val _turnsSinceKvFlush = java.util.concurrent.atomic.AtomicInteger(0)
@@ -334,13 +335,8 @@ class KoogAgent(
                 withContext(Dispatchers.IO) { checkpoint() }
             }
             SystemEventType.KV_CACHE_FLUSH -> {
-                Timber.i("🔄 KV cache flush requested")
-                try {
-                    llmEngine.softReset(buildSystemPrompt())
-                    turnsSinceKvFlush = 0
-                } catch (e: Exception) {
-                    Timber.e(e, "KV flush failed")
-                }
+                Timber.i("🔄 KV cache flush requested via system event")
+                flushAndCompactSession()
             }
             SystemEventType.CHECKPOINT_NOW -> {
                 withContext(Dispatchers.IO) { checkpoint() }
@@ -350,6 +346,56 @@ class KoogAgent(
     }
     
     /**
+     * Compacts session conversation history into long-term semantic memory
+     * and performs a C++ LiteRT-LM KV cache soft reset with the active system prompt.
+     */
+    suspend fun flushAndCompactSession() {
+        Timber.i("🌀 Explicit Session Compaction & KV Cache Flush requested")
+        try {
+            val memoryManager = com.ghost.api.database.MemoryManager(this.context)
+            val oldMemory = memoryManager.getCompactedSessionMemory()
+
+            val messagesToCompact = synchronized(_conversationHistory) {
+                if (_conversationHistory.size > 4) {
+                    val toCompact = _conversationHistory.dropLast(4)
+                    val recent = _conversationHistory.takeLast(4)
+                    _conversationHistory.clear()
+                    _conversationHistory.addAll(recent)
+                    toCompact
+                } else {
+                    val toCompact = _conversationHistory.toList()
+                    _conversationHistory.clear()
+                    toCompact
+                }
+            }
+
+            if (messagesToCompact.isNotEmpty()) {
+                val newMemory = SessionMemoryCompactor.compactOldMessages(messagesToCompact, oldMemory, llmEngine)
+                memoryManager.updateCompactedSessionMemory(newMemory)
+            }
+
+            val initialMessages = synchronized(_conversationHistory) {
+                _conversationHistory.map {
+                    when (it.role) {
+                        "user" -> com.google.ai.edge.litertlm.Message.user(it.content)
+                        "assistant" -> com.google.ai.edge.litertlm.Message.model(it.content)
+                        else -> com.google.ai.edge.litertlm.Message.system(it.content)
+                    }
+                }
+            }
+
+            val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
+            llmEngine.softReset(systemPrompt, currentTools, initialMessages)
+            turnsSinceKvFlush = 0
+            _lastResponseHash.set(0)
+            lastResponseText = ""
+            Timber.i("✅ Session compaction & KV cache soft reset complete")
+        } catch (e: Exception) {
+            Timber.e(e, "Session compaction failed")
+        }
+    }
+
+    /**
      * Complete reset of agent state and engine KV cache.
      */
     suspend fun softReset() {
@@ -357,6 +403,8 @@ class KoogAgent(
         val systemPrompt = buildSystemPrompt()
         llmEngine.softReset(systemPrompt, currentTools)
         turnsSinceKvFlush = 0
+        _lastResponseHash.set(0)
+        lastResponseText = ""
         Timber.i("KoogAgent: Soft reset complete")
     }
 
@@ -364,6 +412,8 @@ class KoogAgent(
         synchronized(_conversationHistory) {
             _conversationHistory.clear()
             turnCount = 0
+            _lastResponseHash.set(0)
+            lastResponseText = ""
             Timber.i("KoogAgent: History cleared")
         }
     }
@@ -718,11 +768,19 @@ class KoogAgent(
             lastInferenceTime = System.currentTimeMillis()
             Timber.i("💭 Process complete (${inferenceMs}ms): ${response.take(50)}...")
 
-            // Stuck loop detection: same response hash = KV corruption
-            val responseHash = response.trim().lowercase().hashCode()
-            val isSameResponse = responseHash == lastResponseHash && lastResponseHash != 0 && response.length > 20
-
+            // Stuck loop detection: repetitive tokens (e.g. 🎵, ..., or identical response hash) = KV corruption
+            val cleanTrimmed = response.trim().lowercase()
+            val responseHash = cleanTrimmed.hashCode()
+            val isDuplicate = (responseHash == lastResponseHash && lastResponseHash != 0) ||
+                              (cleanTrimmed.length <= 6 && cleanTrimmed == lastResponseText && cleanTrimmed.isNotEmpty())
+            
             _lastResponseHash.set(responseHash)
+            lastResponseText = cleanTrimmed
+
+            if (isDuplicate) {
+                Timber.w("🚨 Stuck loop detected (duplicate hash or repetitive token: '$cleanTrimmed') — triggering auto-flush")
+                sendSystemEvent(SystemEventType.KV_CACHE_FLUSH)
+            }
 
             // The native C++ engine handles tools (run_intent/run_js) internally.
             // When generateResponse returns, any tool invocations and reflections have already
@@ -737,56 +795,12 @@ class KoogAgent(
                 }
             }
 
-            // 8. Dynamic KV Cache Flush based on token limit
+            // 8. Dynamic KV Cache Flush based on token limit or turns
+            turnsSinceKvFlush++
             val currentTokenEstimate = (context.length + event.message.length + _conversationHistory.sumOf { it.content.length }) / com.ghost.api.Constants.CHARS_PER_TOKEN
-            // 4120 leaves ~1000 tokens for the engine to generate response
-            if (currentTokenEstimate > 4120) {
-                Timber.i("🌀 KV cache reaching capacity (~$currentTokenEstimate tokens). Auto-flushing & Compacting...")
-                try {
-                    withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(this@KoogAgent.context, "🟢 Consolidating Memory...", android.widget.Toast.LENGTH_LONG).show()
-                    }
-                    
-                    val memoryManager = com.ghost.api.database.MemoryManager(this@KoogAgent.context)
-                    val oldMemory = memoryManager.getCompactedSessionMemory()
-                    
-                    // Grab everything EXCEPT the last 10 messages (which we want to keep intact)
-                    val messagesToCompact = synchronized(_conversationHistory) {
-                        if (_conversationHistory.size > 10) {
-                            val target = _conversationHistory.dropLast(10)
-                            target
-                        } else emptyList()
-                    }
-                    
-                    if (messagesToCompact.isNotEmpty()) {
-                        val newMemory = SessionMemoryCompactor.compactOldMessages(messagesToCompact, oldMemory, llmEngine)
-                        memoryManager.updateCompactedSessionMemory(newMemory)
-                        
-                        // Prune history to just the last 10 intact messages
-                        synchronized(_conversationHistory) {
-                            val recent = _conversationHistory.takeLast(10)
-                            _conversationHistory.clear()
-                            _conversationHistory.addAll(recent)
-                        }
-                    }
-
-                    // Map the recent history to litertlm.Message for true KV injection
-                    val initialMessages = synchronized(_conversationHistory) {
-                        _conversationHistory.map {
-                            when (it.role) {
-                                "user" -> com.google.ai.edge.litertlm.Message.user(it.content)
-                                "assistant" -> com.google.ai.edge.litertlm.Message.model(it.content)
-                                else -> com.google.ai.edge.litertlm.Message.system(it.content)
-                            }
-                        }
-                    }
-
-                    val systemPrompt = buildSystemPrompt() + getRollingMemoryString()
-                    llmEngine.softReset(systemPrompt, currentTools, initialMessages)
-                    turnsSinceKvFlush = 0
-                } catch (e: Exception) {
-                    Timber.w(e, "Auto-flush failed (non-fatal)")
-                }
+            if (currentTokenEstimate > 2400 || turnsSinceKvFlush >= 10) {
+                Timber.i("🌀 KV cache reaching capacity (~$currentTokenEstimate tokens, $turnsSinceKvFlush turns). Auto-flushing & Compacting...")
+                flushAndCompactSession()
             }
 
 

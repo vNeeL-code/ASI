@@ -535,6 +535,47 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         Timber.i("\uD83E\uDDF9 Recovery state cleared via service")
     }
 
+    /**
+     * Hot-reloads the inference backend live on the fly (AUTO, CPU, GPU, NPU, OFF)
+     * without killing the foreground service or restarting the app.
+     */
+    fun reloadWithBackend(backend: String) {
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        prefs.edit().putString(Constants.PREF_USER_BACKEND, backend).apply()
+
+        serviceScope.launch {
+            if (backend == "OFF") {
+                unloadEngine()
+                _isSystemReady.value = true
+                updateNotification("GHOST Online (Engine OFF)")
+                reportStatus("Standby: Engine OFF")
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(this@GemmaService, "Inference Engine OFF (RAM freed) 🍃", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                updateNotification("Switching to $backend...")
+                initialize()
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(this@GemmaService, "Engine online on $backend 🚀", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Compacts session conversation history into semantic memory and resets the KV cache.
+     */
+    fun flushSessionMemory() {
+        serviceScope.launch {
+            if (::koogAgent.isInitialized) {
+                koogAgent.flushAndCompactSession()
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(this@GemmaService, "Session compacted & KV cache cleared ✨", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     private fun getThermalSafetyState(thermalState: HardwarePropertiesManager.ThermalState): ThermalSafetyState {
         return when (thermalState) {
             HardwarePropertiesManager.ThermalState.CRITICAL -> ThermalSafetyState.CRITICAL
@@ -643,6 +684,16 @@ class GemmaService : Service(), AgentPlatformCallbacks {
 
             // Determine backend: User override > Watchdog > Auto waterfall
             val userBackend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO")
+            if (userBackend == "OFF") {
+                Timber.i("🛑 User selected backend: OFF. Entering standalone mode (RAM freed).")
+                unloadEngine()
+                _isSystemReady.value = true
+                prefs.edit().putBoolean("is_initializing", false).apply()
+                updateNotification("GHOST Online (Engine OFF)")
+                reportStatus("Standby: Engine OFF")
+                return
+            }
+
             val forcedBackend = if (userBackend != null && userBackend != "AUTO") {
                 Timber.i("\uD83C\uDFAE User backend override: $userBackend")
                 updateNotification("Loading on $userBackend (user selected)")
@@ -796,6 +847,14 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     }
 
     fun processQueryFromUi(query: String) {
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val userBackend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO")
+        if (userBackend == "OFF") {
+            uiCallback?.onMessageAdded(query, isUser = true)
+            uiCallback?.onMessageAdded("Inference Engine is set to OFF in Settings. Select AUTO, CPU, or GPU to enable on-device chat.", isUser = false)
+            return
+        }
+
         if (!::koogAgent.isInitialized || !koogAgent.isReady) {
             uiCallback?.onMessageAdded("System is still initializing. Please wait a moment and try again.", isUser = false)
             return
@@ -827,6 +886,13 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     }
 
     fun processMultimodalFromUi(query: String, images: List<android.graphics.Bitmap>? = null, audio: ByteArray? = null) {
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val userBackend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO")
+        if (userBackend == "OFF") {
+            uiCallback?.onMessageAdded(query, isUser = true)
+            uiCallback?.onMessageAdded("Inference Engine is set to OFF in Settings. Select AUTO, CPU, or GPU to enable on-device chat.", isUser = false)
+            return
+        }
         if (!::koogAgent.isInitialized || !koogAgent.isReady) {
              uiCallback?.onMessageAdded("System is still initializing. Please wait.", isUser = false)
              return
@@ -848,6 +914,16 @@ class GemmaService : Service(), AgentPlatformCallbacks {
      * Core orchestrator: Context gathering + LLM reasoning + Tool execution
      */
     suspend fun processQuery(userPrompt: String, sessionId: String? = null, isDream: Boolean = false): String? = engineMutex.withLock {
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val userBackend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO")
+        if (userBackend == "OFF") {
+            val msg = "Inference Engine is set to OFF in Settings. Select AUTO, CPU, or GPU to enable on-device chat."
+            if (!isDream) {
+                responseNotificationManager.showResponse("⚠\uFE0F $msg")
+            }
+            return@withLock msg
+        }
+
         if (!::koogAgent.isInitialized || !koogAgent.isReady) {
             responseNotificationManager.showResponse("⚠\uFE0F System still starting up... try again in a moment")
             return@withLock "System is still initializing. Please wait a moment and try again."
