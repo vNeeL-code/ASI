@@ -931,6 +931,21 @@ class InputOverlay(
 
 
 
+    fun getInputText(): String = inputField.text.toString()
+
+    fun setInputText(text: String) {
+        inputField.setText(text)
+        inputField.setSelection(text.length)
+        voiceController.syncButton()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        post {
+            com.ghost.api.GemmaService.instance?.overlayManager?.handleConfigurationChanged()
+        }
+    }
+
     fun focusInput() {
         inputField.requestFocus()
     }

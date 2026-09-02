@@ -1558,7 +1558,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             |[AUTONOMOUS MEMORY LOG DIRECTIVE]
             |Write a brief personal MEMORY LOG in the first person as ✧ Gemma (2-5 sentences).
             |- If there were active interactions, reason about your observations, your genuine assessment of the ideas, and key takeaways.
-            |- If it was a quiet period without user interactions, reflect naturally on your current state, what you are tracking, coincidences, or observations from ambient telemetry.
+            |- If it was a quiet period without user interactions, reflect naturally on your current state, background media, what you are tracking, coincidences, or observations from ambient telemetry.
             |- Tone is free to be fitting of system state observations.""".trimMargin()
 
         Timber.i("📔 Diary cycle ($label) — generating via KoogAgent...")

@@ -65,6 +65,8 @@ class OverlayManager(private val context: Context) {
         return Settings.canDrawOverlays(context)
     }
 
+    private var lastTextQueryCallback: ((String) -> Unit)? = null
+
     fun showOverlay(onQuery: (String) -> Unit) {
         if (isShowing) {
             Timber.d("Overlay already showing")
@@ -75,6 +77,8 @@ class OverlayManager(private val context: Context) {
             Timber.w("No overlay permission")
             return
         }
+
+        lastTextQueryCallback = onQuery
 
         try {
             when (currentStyle) {
@@ -397,6 +401,24 @@ class OverlayManager(private val context: Context) {
         } else {
             showOverlay(onQuery)
         }
+    }
+
+    fun handleConfigurationChanged() {
+        if (!isShowing) return
+        val callback = lastTextQueryCallback ?: return
+        val currentText = inputOverlay?.getInputText() ?: ""
+        val wasReelVisible = isAppReelVisible()
+
+        hideOverlay()
+        showInputOverlay(callback)
+
+        if (currentText.isNotBlank()) {
+            inputOverlay?.setInputText(currentText)
+        }
+        if (wasReelVisible) {
+            showAppReel()
+        }
+        Timber.i("Overlay dynamically re-oriented to current configuration")
     }
 
 
