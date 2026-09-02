@@ -215,17 +215,7 @@ fun ChatMessageRow(message: ChatMessage, onToggleThinking: () -> Unit) {
     val context = LocalContext.current
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
-    val rawDeviceName = remember(context) {
-        try {
-            android.provider.Settings.Global.getString(context.contentResolver, android.provider.Settings.Global.DEVICE_NAME)
-                ?: android.provider.Settings.Secure.getString(context.contentResolver, "bluetooth_name")
-                ?: android.provider.Settings.Global.getString(context.contentResolver, "device_name")
-                ?: "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
-        } catch (e: Exception) {
-            "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
-        }
-    }
-    val cleanDeviceName = remember(rawDeviceName) { rawDeviceName.removePrefix("✧").trim() }
+    val cleanDeviceName = remember(context) { com.ghost.api.logic.ContextManager.resolveDeviceCallSign(context) }
     val aiHeaderTag = remember(cleanDeviceName) { "✧ $cleanDeviceName" }
 
     val finalDisplayContent = if (isUser) {

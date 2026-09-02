@@ -1345,15 +1345,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             // v4.20: Dynamic multi-device signature for synchronized calendar timeline
             if (eventType in listOf("MEMORY", "DREAM")) {
                 try {
-                    val rawDeviceName = try {
-                        android.provider.Settings.Global.getString(contentResolver, android.provider.Settings.Global.DEVICE_NAME)
-                            ?: android.provider.Settings.Secure.getString(contentResolver, "bluetooth_name")
-                            ?: android.provider.Settings.Global.getString(contentResolver, "device_name")
-                            ?: "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
-                    } catch (e: Exception) {
-                        "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
-                    }
-                    val cleanDeviceName = rawDeviceName.removePrefix("✧").trim()
+                    val cleanDeviceName = com.ghost.api.logic.ContextManager.resolveDeviceCallSign(applicationContext)
                     val signature = "✧ $cleanDeviceName"
                     val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
                     val timestampStr = sdf.format(java.util.Date())

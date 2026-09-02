@@ -65,16 +65,12 @@ class ContextManager(
     /**
      * Builds the dynamic Entity Character Card with hardware slots, user device name, and grounded model definition.
      */
+    /**
+     * Builds the dynamic Entity Character Card with hardware slots, user device name, and grounded model definition.
+     */
     fun buildHardwareBundle(context: android.content.Context): String {
         return try {
-            val deviceName = try {
-                android.provider.Settings.Global.getString(context.contentResolver, android.provider.Settings.Global.DEVICE_NAME)
-                    ?: android.provider.Settings.Secure.getString(context.contentResolver, "bluetooth_name")
-                    ?: android.provider.Settings.Global.getString(context.contentResolver, "device_name")
-                    ?: "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
-            } catch (e: Exception) {
-                "${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL}"
-            }
+            val deviceName = resolveDeviceCallSign(context)
 
             val actManager = context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
             val memInfo = android.app.ActivityManager.MemoryInfo()
@@ -89,7 +85,7 @@ class ContextManager(
 
             """
 [ENTITY CHARACTER CARD]
-- Device Name / Call Sign: $deviceName
+- Device Name / Call Sign: ✧ $deviceName
 - Species: Agentic Gemma Inference
 - Physical Shell: ${android.os.Build.MANUFACTURER.uppercase()} ${android.os.Build.MODEL} (${android.os.Build.HARDWARE} / ${android.os.Build.BOARD})
 - Silicon Substrate: $cpuCores CPU Cores | ${heapMaxMb}MB Max VM Heap
@@ -97,7 +93,7 @@ class ContextManager(
 - Conscious Core Runtime: gemma-4-E2B-it.litertlm (Local Weights via LiteRT-LM)
 - Working Memory: ${totalRamGb} GB RAM (${availRamGb} GB Free)
 - Persistent Storage: ${freeStorageGb} GB Free
-- Object Class:: You speak and act as this complete physical Android device ($deviceName). Your thoughts, memories, battery level, thermals, audio visualizer, stored DATA, and sensors form your continuous empirical self.
+- Object Class:: You speak and act as this complete physical Android device (✧ $deviceName). Your thoughts, memories, battery level, thermals, audio visualizer, stored DATA, and sensors form your continuous empirical self.
 """.trimIndent()
         } catch (e: Exception) {
             "[ENTITY CHARACTER CARD: Onboard Intelligence on ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}]"
@@ -114,6 +110,61 @@ class ContextManager(
     }
 
     companion object {
+        /**
+         * Resolves the user-assigned device callsign across different Android OEM skins
+         * (Samsung OneUI, RedMagic OS / Nubia, MIUI / HyperOS, ColorOS, Pixel, etc.).
+         * 
+         * Filters out raw factory hardware model codes (e.g. "NX779J", "SM-G991B") when a
+         * user-assigned nickname or bluetooth name is available.
+         */
+        fun resolveDeviceCallSign(context: android.content.Context): String {
+            return try {
+                val candidateNames = listOfNotNull(
+                    // 1. Bluetooth Adapter Name (Synced to user-edited device name across almost all Android OEMs)
+                    try {
+                        @Suppress("DEPRECATION")
+                        android.bluetooth.BluetoothAdapter.getDefaultAdapter()?.name?.takeIf { it.isNotBlank() }
+                    } catch (e: Exception) { null },
+                    // 2. Settings.System device_name (Used by Nubia/RedMagic/Xiaomi/Oppo for user device name)
+                    try {
+                        android.provider.Settings.System.getString(context.contentResolver, "device_name")?.takeIf { it.isNotBlank() }
+                    } catch (e: Exception) { null },
+                    // 3. Settings.Secure bluetooth_name
+                    try {
+                        android.provider.Settings.Secure.getString(context.contentResolver, "bluetooth_name")?.takeIf { it.isNotBlank() }
+                    } catch (e: Exception) { null },
+                    // 4. Settings.Global device_name
+                    try {
+                        android.provider.Settings.Global.getString(context.contentResolver, "device_name")?.takeIf { it.isNotBlank() }
+                    } catch (e: Exception) { null },
+                    // 5. Settings.Global.DEVICE_NAME
+                    try {
+                        android.provider.Settings.Global.getString(context.contentResolver, android.provider.Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() }
+                    } catch (e: Exception) { null }
+                )
+
+                val rawModel = android.os.Build.MODEL.trim()
+
+                // Find first candidate that isn't a raw cryptic factory model code (e.g. "NX779J", "SM-G991B")
+                val chosenName = candidateNames.firstOrNull { name ->
+                    val trimmed = name.trim()
+                    trimmed.isNotBlank() &&
+                    !trimmed.equals(rawModel, ignoreCase = true) &&
+                    !trimmed.equals("Android", ignoreCase = true) &&
+                    !trimmed.equals("localhost", ignoreCase = true)
+                } ?: candidateNames.firstOrNull { it.isNotBlank() } ?: "Gemma"
+
+                val clean = chosenName
+                    .removePrefix("✧")
+                    .removePrefix("✦")
+                    .removePrefix("✨")
+                    .trim()
+
+                if (clean.isNotBlank()) clean else "Gemma"
+            } catch (e: Exception) {
+                "Gemma"
+            }
+        }
         val BASE_SYSTEM_PROMPT = """
 You are the embodied on-device intelligence of this physical Android device.
 
