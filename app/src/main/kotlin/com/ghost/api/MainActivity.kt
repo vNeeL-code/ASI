@@ -377,20 +377,48 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             setBackgroundColor(dividerColor)
         })
 
-        // === SECTION: Autonomous Diary Cadence ===
-        container.addView(TextView(this).apply {
-            text = "Autonomous Diary Cadence"
+        // === SECTION: Autonomous Diary ===
+        val diaryActive = prefs.getBoolean(Constants.PREF_AUTONOMOUS_DIARY, true)
+        val currentCadence = prefs.getString(Constants.PREF_DIARY_CADENCE, "12") ?: "12"
+
+        val cadenceContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            alpha = if (diaryActive) 1f else 0.35f
+        }
+
+        addToggleRow("Autonomous Diary", diaryActive) { checked ->
+            prefs.edit().putBoolean(Constants.PREF_AUTONOMOUS_DIARY, checked).apply()
+            cadenceContainer.alpha = if (checked) 1f else 0.35f
+            for (i in 0 until cadenceContainer.childCount) {
+                val child = cadenceContainer.getChildAt(i)
+                child.isEnabled = checked
+                if (child is RadioGroup) {
+                    for (j in 0 until child.childCount) {
+                        child.getChildAt(j).isEnabled = checked
+                    }
+                }
+            }
+            if (checked) {
+                com.ghost.api.workers.DiaryWorker.schedule(this)
+                Toast.makeText(this, "Autonomous diary enabled", Toast.LENGTH_SHORT).show()
+            } else {
+                com.ghost.api.workers.DiaryWorker.cancel(this)
+                Toast.makeText(this, "Autonomous diary paused", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        cadenceContainer.addView(TextView(this).apply {
+            text = "Reflection Cadence"
             textSize = 12f
             setTextColor(dimTextColor)
             letterSpacing = 0.08f
-            setPadding(0, 0, 0, 12)
+            setPadding(0, 8, 0, 8)
         })
 
-        val currentCadence = prefs.getString(Constants.PREF_DIARY_CADENCE, "12") ?: "12"
         val diaryRadioGroup = RadioGroup(this).apply {
             orientation = RadioGroup.HORIZONTAL
         }
-        val cadences = listOf("1H" to "1", "3H" to "3", "12H" to "12", "OFF" to "OFF")
+        val cadences = listOf("1H" to "1", "3H" to "3", "6H" to "6", "12H" to "12", "24H" to "24")
         for ((label, value) in cadences) {
             diaryRadioGroup.addView(RadioButton(this).apply {
                 text = label
@@ -398,8 +426,9 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                 setTextColor(Color.WHITE)
                 buttonTintList = ColorStateList.valueOf(accentColor)
                 isChecked = (value == currentCadence)
+                isEnabled = diaryActive
                 id = View.generateViewId()
-                setPadding(0, 0, 24, 0)
+                setPadding(0, 0, 16, 0)
             })
         }
         diaryRadioGroup.setOnCheckedChangeListener { group, checkedId ->
@@ -409,14 +438,15 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             
             prefs.edit()
                 .putString(Constants.PREF_DIARY_CADENCE, selectedValue)
-                .putBoolean(Constants.PREF_AUTONOMOUS_DIARY, selectedValue != "OFF")
                 .apply()
             
-            com.ghost.api.workers.DiaryWorker.schedule(this)
-            val toastMsg = if (selectedValue == "OFF") "Autonomous diary disabled" else "Diary set to $selectedLabel"
-            Toast.makeText(this, toastMsg, Toast.LENGTH_SHORT).show()
+            if (prefs.getBoolean(Constants.PREF_AUTONOMOUS_DIARY, true)) {
+                com.ghost.api.workers.DiaryWorker.schedule(this)
+            }
+            Toast.makeText(this, "Diary cadence set to $selectedLabel", Toast.LENGTH_SHORT).show()
         }
-        container.addView(diaryRadioGroup)
+        cadenceContainer.addView(diaryRadioGroup)
+        container.addView(cadenceContainer)
 
         // Voice Output (TTS) persistent toggle
         val ttsActive = prefs.getBoolean(Constants.PREF_TTS_ENABLED, true)

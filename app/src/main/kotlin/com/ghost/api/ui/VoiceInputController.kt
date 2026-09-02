@@ -171,9 +171,10 @@ class VoiceInputController(
                 startPulse()
             }
             voiceState == VoiceState.CONFIRM -> {
-                // Confirm: amber / safety orange circle & sparkle
-                micButton.text = CIRCLE
+                // Confirm: amber / safety orange send arrow & sparkle
+                micButton.text = "➤"
                 micButton.setTextColor(colorConfirm)
+                micButton.alpha = 1f
                 sparkleOrNull?.setTextColor(colorConfirm)
                 startPulse()
             }

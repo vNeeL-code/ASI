@@ -483,16 +483,16 @@ fun InputBar(
             )
         } else {
             // No text: Voice state button
-            val (btnColor, btnAlpha) = when (voiceState) {
-                VoiceState.IDLE -> colorIdle to 0.85f
-                VoiceState.RECORDING -> colorRecording to pulseAlpha
-                VoiceState.CONFIRM -> colorConfirm to pulseAlpha
+            val (btnGlyph, btnColor, btnAlpha) = when (voiceState) {
+                VoiceState.IDLE -> Triple(CIRCLE_GLYPH, colorIdle, 0.85f)
+                VoiceState.RECORDING -> Triple(CIRCLE_GLYPH, colorRecording, pulseAlpha)
+                VoiceState.CONFIRM -> Triple("➤", colorConfirm, pulseAlpha)
             }
 
             Text(
-                text = CIRCLE_GLYPH,
+                text = btnGlyph,
                 color = btnColor,
-                fontSize = 20.sp,
+                fontSize = if (btnGlyph == "➤") 22.sp else 20.sp,
                 modifier = Modifier
                     .size(44.dp)
                     .alpha(btnAlpha)

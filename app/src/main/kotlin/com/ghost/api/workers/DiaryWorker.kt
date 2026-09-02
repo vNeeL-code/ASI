@@ -37,6 +37,8 @@ class DiaryWorker(
         val cadenceHours = when (cadence) {
             "1" -> 1L
             "3" -> 3L
+            "6" -> 6L
+            "24" -> 24L
             else -> 12L
         }
         val minElapsedMs = (cadenceHours * 3600 * 1000L) - (10 * 60 * 1000L)
@@ -95,6 +97,21 @@ class DiaryWorker(
                 }
                 "3" -> {
                     PeriodicWorkRequestBuilder<DiaryWorker>(3, TimeUnit.HOURS, 15, TimeUnit.MINUTES)
+                        .setConstraints(constraints)
+                        .build()
+                }
+                "6" -> {
+                    PeriodicWorkRequestBuilder<DiaryWorker>(6, TimeUnit.HOURS, 20, TimeUnit.MINUTES)
+                        .setConstraints(constraints)
+                        .build()
+                }
+                "24" -> {
+                    val now = java.time.ZonedDateTime.now()
+                    val nextMidnight = (if (now.hour >= 0) now.plusDays(1) else now)
+                        .withHour(0).withMinute(0).withSecond(0).withNano(0)
+                    val initialDelayMs = java.time.Duration.between(now, nextMidnight).toMillis().coerceAtLeast(0)
+                    PeriodicWorkRequestBuilder<DiaryWorker>(24, TimeUnit.HOURS, 30, TimeUnit.MINUTES)
+                        .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
                         .setConstraints(constraints)
                         .build()
                 }
