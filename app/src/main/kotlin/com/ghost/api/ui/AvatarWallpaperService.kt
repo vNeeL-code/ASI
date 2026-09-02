@@ -43,6 +43,9 @@ class AvatarWallpaperService : WallpaperService() {
             Color.parseColor("#FBBC05"),
             Color.parseColor("#34A853")
         )
+
+        // Default neutral star glow matches Ethereal Off-White Cobalt (#8BB4F6) from the App Icon & HUD
+        private val colorCobaltGlow = Color.parseColor("#8BB4F6")
         
         // Target and Current colors for smooth transitions
         private var targetColors: IntArray = defaultColors.copyOf()
@@ -198,8 +201,14 @@ class AvatarWallpaperService : WallpaperService() {
                     
                     canvas.restore()
                     
-                    // Multi-pass bloom glow — lightweight alpha layers without expensive CPU Gaussian blur
-                    val glowColor = currentColors[0]
+                    // Multi-pass bloom glow — Ethereal Cobalt aura (matching app icon & HUD theme)
+                    // If music album art colors are active, blend smoothly with extracted palette
+                    val isDefaultPalette = currentColors.contentEquals(defaultColors)
+                    val glowColor = if (isDefaultPalette) {
+                        colorCobaltGlow
+                    } else {
+                        ColorUtils.blendARGB(colorCobaltGlow, currentColors[0], 0.7f)
+                    }
                     val bassBoost = smoothedBass * 1.5f
                     val baseStarSize = 1200f 
                     val bloomSizes   = floatArrayOf(
@@ -219,8 +228,8 @@ class AvatarWallpaperService : WallpaperService() {
                         canvas.drawText("✧", cx, cy - off, logoPaint)
                     }
                     
-                    // White core star
-                    logoPaint.color    = Color.WHITE
+                    // Crisp Core star
+                    logoPaint.color    = Color.parseColor("#F8FAFC")
                     logoPaint.alpha    = 255
                     logoPaint.textSize = baseStarSize
                     val textOffset = (logoPaint.descent() + logoPaint.ascent()) / 2f
