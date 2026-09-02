@@ -83,7 +83,8 @@ class GemmaNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        // Could track dismissals if useful
+        val pkg = sbn?.packageName ?: return
+        replyCache.remove(pkg)
     }
 
     data class NotificationEntry(

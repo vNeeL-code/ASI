@@ -64,15 +64,14 @@ class GemmaAccessibilityService : AccessibilityService() {
             
             while (searchQueue.isNotEmpty() && allNodes.size < 1000) {
                 val node = searchQueue.poll() ?: continue
-                toRecycle.add(node)
                 allNodes.add(node)
                 for (i in 0 until node.childCount) {
-                    node.getChild(i)?.let { searchQueue.add(it) }
+                    node.getChild(i)?.let { child ->
+                        toRecycle.add(child)
+                        searchQueue.add(child)
+                    }
                 }
             }
-            
-            // Audit Fix: Drain remaining items in searchQueue to prevent memory leak
-            searchQueue.forEach { toRecycle.add(it) }
 
             val prioritized = allNodes.sortedWith(compareByDescending<AccessibilityNodeInfo> { 
                 it.isClickable || it.isEditable || it.isFocusable 

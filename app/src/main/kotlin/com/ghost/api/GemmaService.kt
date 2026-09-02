@@ -1453,7 +1453,22 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     }
 
     override fun getThermalDelayMs(lastInferenceTime: Long): Long {
-        return 0L
+        if (!::hardwarePropertiesManager.isInitialized) return 0L
+        val thermalState = hardwarePropertiesManager.thermalState.value
+        val timeSinceLastMs = System.currentTimeMillis() - lastInferenceTime
+
+        return when (thermalState) {
+            HardwarePropertiesManager.ThermalState.CRITICAL -> {
+                if (timeSinceLastMs < 2500) 2000L else 500L
+            }
+            HardwarePropertiesManager.ThermalState.HOT -> {
+                if (timeSinceLastMs < 2000) 800L else 200L
+            }
+            HardwarePropertiesManager.ThermalState.WARM -> {
+                if (timeSinceLastMs < 1500) 250L else 0L
+            }
+            HardwarePropertiesManager.ThermalState.COOL -> 0L
+        }
     }
 
     override fun broadcastMoodChange(state: String) {
