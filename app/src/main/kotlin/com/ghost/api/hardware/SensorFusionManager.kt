@@ -111,7 +111,8 @@ data class NetworkState(
     val wifiConnected: Boolean,
     val wifiSsid: String?,
     val wifiSignalPercent: Int,  // 0-100
-    val type: String             // "WiFi", "Cell", "None"
+    val type: String,            // "WiFi", "Cell", "None"
+    val isAirplaneMode: Boolean = false
 )
 
 data class EnvironmentState(
@@ -568,12 +569,21 @@ class SensorFusionManager(private val context: Context) : AutoCloseable {
                 }
             } else 0
 
+            val isAirplaneMode = try {
+                android.provider.Settings.Global.getInt(
+                    context.contentResolver,
+                    android.provider.Settings.Global.AIRPLANE_MODE_ON,
+                    0
+                ) != 0
+            } catch (e: Exception) { false }
+
             NetworkState(
                 isOnline = isOnline,
                 wifiConnected = wifiConnected,
                 wifiSsid = ssid,
                 wifiSignalPercent = signalPercent,
-                type = type
+                type = type,
+                isAirplaneMode = isAirplaneMode
             )
         } catch (e: Exception) {
             Timber.e(e, "Network state read failed")
@@ -888,7 +898,13 @@ class SensorFusionManager(private val context: Context) : AutoCloseable {
 
         // --- ROW 3: NETWORK & CONNECTIVITY ---
         val netParts = mutableListOf<String>()
-        if (!ctx.network.isOnline) {
+        if (ctx.network.isAirplaneMode) {
+            if (ctx.network.isOnline) {
+                netParts.add("✈️ Airplane Mode (WiFi Active: ${ctx.network.wifiSsid ?: "Connected"})")
+            } else {
+                netParts.add("✈️ Airplane Mode (Offline)")
+            }
+        } else if (!ctx.network.isOnline) {
             netParts.add("📵 Offline")
         } else {
             if (ctx.network.wifiConnected) {
