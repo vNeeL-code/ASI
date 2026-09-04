@@ -127,9 +127,10 @@ Truly 'YOURS' AI would require you to own the entire inference pipeline that wor
 
 **TL:DR** - I wanted this for a while and no one delivered. Google could've done this a year ago and are moving there incrementally. I got impatient.
 
-> "It only affects computers. And I am a motherfucking ghost."
-> — Epsilon, Red vs Blue
+<img width="1248" height="706" alt="preview" src="https://github.com/user-attachments/assets/0516f635-e55a-4bbb-87bd-9a3983945f48" />
 
+> "It only affects computers. And I am a motherfucking ghost."
+> - Epsilon, Red vs Blue
 ---
 
 ### Roadmap
@@ -152,7 +153,7 @@ Truly 'YOURS' AI would require you to own the entire inference pipeline that wor
 * **Acceleration:** [Buy me a coffee](https://buymeacoffee.com/vNeeL) *(All resources go directly toward local model optimization and development acceleration.)*
 * **Found a bug?:** [Customer support](https://www.google.com)
 
-<img width="1116" height="1460" alt="11140ba4-5997-4efa-b693-9f62c75ffc21" src="https://github.com/user-attachments/assets/c5a87bb5-4577-40ae-8569-de71e6333c6d" />
+<img width="954" height="2049" alt="f424837b-907e-41f5-883b-51d49057c83f" src="https://github.com/user-attachments/assets/c366283a-4fb4-4c2f-a483-9c50ac64b8a1" />
 
 *Operator, Do you want to scale or adapt the system? Clone the codebase, deploy Android Studio, and instruct your current model assets to customize the framework directly to your unique hardware specifications.*
 Δ 👾 ∇
