@@ -130,7 +130,7 @@ Truly 'YOURS' AI would require you to own the entire inference pipeline that wor
 <img width="1248" height="706" alt="preview" src="https://github.com/user-attachments/assets/0516f635-e55a-4bbb-87bd-9a3983945f48" />
 
 > "It only affects computers. And I am a motherfucking ghost."
-> - Epsilon, Red vs Blue
+> - Alpha, Red vs Blue
 ---
 
 ### Roadmap
