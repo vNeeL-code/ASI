@@ -1,4 +1,4 @@
-# ✧ GHOSt - Gemma Hosting Open Source thingamajig
+# ✧ GHOST - Gemma Hosting Open Source Thingamajig
 
 > *"So, Epsilon, ChurchGPT, Leonard part six or whatever your name is... Are you a ghost this time, or an artificial intelligence thingamajig? I ,personally prefer the ghost explanation. Feels more grounded to me"*
 > - Sgt. Sarge, Red vs. Blue
@@ -11,11 +11,11 @@
 ![Static Badge](https://img.shields.io/badge/Status-WIP-green)
 ![GitHub Repo stars](https://img.shields.io/github/stars/vNeeL-code/GHOST)
 
-### What is even a ✧ GHOSt?
+### What is even a ✧ GHOST? 👻 
 
-✧ GHOSt is not an enterprise companion chatbot. **Gemma Hosting Open Source thingamajig** is a privacy first, personal AI assistant + launcher interface (similar to Niagara and others) for users who want a capable, personal Android UX assistant that provides standard system integration with advanced, localized agentic capabilities - running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
+✧ GHOST is not quite a chatbot. **Gemma Hosting Open Source thingamajig** is a privacy first, personal, AI assistant + launcher interface (similar to Niagara and others) for users who want a capable, general purpose Android UX assistant that provides standard system integration with advanced, localized agentic capabilities - running entirely in the palm of your hand. Not dependant on subscription models, accounts or network outages.
 
-While using multistep agentic actions, with web scraping, data retrieval and hardware tools and apps use.
+While using multistep agentic actions, with web scraping, data retrieval and hardware tools, apps interaction and file navigation.
 
 A gentle shake summoning a programmable GUI (hold ✧ to set up shortcuts) on any app, with direct access to a local model that can chime in via TTS without occupying your screen powered by [Google Gemma 4](https://ai.google.dev/gemma/docs/core/model_card_4) via LiteRT-LM.
 
