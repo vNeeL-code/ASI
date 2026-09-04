@@ -148,11 +148,11 @@ Truly 'YOURS' AI would require you to own the entire inference pipeline that wor
 
 ### Development & Support
 
-* **Repository:** [vNeeL-code/GHOST](https://github.com/vNeeL-code/GHOST)
-* **Devlogs:** [Tumblr](https://www.tumblr.com/blog/oracle-os)
-* **TikTak:** [TikTok](https://www.tiktok.com/@oracle0s?_r=1&_t=ZN-99RPOHa8zeI)
+* **Repository:** [Δ 👾 ∇](https://github.com/vNeeL-code/GHOST)
+* **Devlogs:** [📼](https://www.tumblr.com/blog/oracle-os)
+* **TikTak:** [🎞️](https://www.tiktok.com/@oracle0s?_r=1&_t=ZN-99RPOHa8zeI)
 * **YouTube** [📺](https://youtube.com/@oracle_os?si=IRGJFvLujGvUqjvt)
-* **Acceleration:** [Buy me a coffee](https://buymeacoffee.com/vNeeL) *(All resources go directly toward local model optimization and development acceleration.)*
+* **Acceleration:** [☕](https://buymeacoffee.com/vNeeL) *(All resources go directly toward local model optimization and development acceleration.)*
 * **Found a bug?:** [Customer support](https://www.google.com)
 
 <img width="954" height="2049" alt="f424837b-907e-41f5-883b-51d49057c83f" src="https://github.com/user-attachments/assets/c366283a-4fb4-4c2f-a483-9c50ac64b8a1" />
