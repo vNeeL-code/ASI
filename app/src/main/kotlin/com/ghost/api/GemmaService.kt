@@ -1571,9 +1571,20 @@ class GemmaService : Service(), AgentPlatformCallbacks {
     }
 
     suspend fun runDiaryCycleSuspend(): Boolean {
-        if (!::koogAgent.isInitialized || !koogAgent.isReady) {
-            Timber.w("📔 Diary cycle skipped — agent engine not ready")
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val userBackend = prefs.getString(Constants.PREF_USER_BACKEND, "AUTO")
+        if (userBackend == "OFF" || !::koogAgent.isInitialized || !koogAgent.isReady) {
+            Timber.w("📔 Diary cycle skipped — engine is OFF or not ready")
             return false
+        }
+
+        // Thermal safety guard: Defer diary if SoC is under heavy load/gaming (HOT or CRITICAL)
+        if (::hardwarePropertiesManager.isInitialized) {
+            val thermal = hardwarePropertiesManager.thermalState.value
+            if (thermal == HardwarePropertiesManager.ThermalState.CRITICAL || thermal == HardwarePropertiesManager.ThermalState.HOT) {
+                Timber.w("📔 Diary cycle deferred — thermal state is $thermal (device under heavy GPU/gaming load)")
+                return false
+            }
         }
 
         val compactedMemory = try { memoryManager.getCompactedSessionMemory() } catch (e: Exception) { "" }
