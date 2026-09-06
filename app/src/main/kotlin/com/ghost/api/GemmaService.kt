@@ -777,10 +777,8 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 }
             }
 
-            scope.launch {
-                koogAgent.initialize()
-                Timber.i("KoogAgent ready")
-            }
+            koogAgent.initialize()
+            Timber.i("KoogAgent ready")
 
             // Success: Clear watchdog
             prefs.edit()

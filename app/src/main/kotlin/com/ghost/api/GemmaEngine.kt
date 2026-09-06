@@ -105,13 +105,18 @@ class GemmaEngine(private val context: Context) : LlmBackend {
             
             var lastError: Exception? = null
             for ((backendName, preferredBackend) in backendsToTry) {
+                val isGpu = backendName == "GPU"
+                val visionBackend = if (enableVision) {
+                    if (isGpu) sharedGpuBackend else Backend.CPU()
+                } else null
+
                 val engineConfig = EngineConfig(
                     modelPath = modelPath,
                     backend = preferredBackend,  // Main inference backend
-                    visionBackend = if (enableVision) sharedGpuBackend else null,  // reuse same GPU instance to prevent OOM
-                    audioBackend = if (enableAudio) Backend.CPU() else null,    // must be CPU for Gemma 3n
+                    visionBackend = visionBackend,  // Match CPU/GPU mode cleanly
+                    audioBackend = if (enableAudio) Backend.CPU() else null,    // must be CPU for Gemma
                     maxNumTokens = Constants.MAX_TOKENS,
-                    cacheDir = context.getExternalFilesDir(null)?.absolutePath
+                    cacheDir = context.codeCacheDir.absolutePath  // Private internal storage (safe from Samsung Knox SELinux sandbox blocks)
                 )
 
                 try {

@@ -121,15 +121,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
         val flags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) Context.RECEIVER_NOT_EXPORTED else 0
         registerReceiver(ttsStateReceiver, filter, flags)
         
-        // Ensure overlay permission
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Overlay permission required", Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            return
-        }
-
-        completeRitual()
-
+        // Ensure Compose UI renders immediately
         setContent {
             GHOSTTheme {
                 val messages by chatViewModel.messages.collectAsState()
@@ -171,10 +163,19 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                 )
             }
         }
+
+        // Check overlay permission non-blockingly
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Overlay permission recommended for GHOST controls", Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        }
+
+        completeRitual()
     }
     
     override fun onResume() {
         super.onResume()
+        completeRitual()
         checkNotificationPermission()
         checkCalendarPermissions()
     }
