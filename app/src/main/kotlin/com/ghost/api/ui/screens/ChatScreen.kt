@@ -50,6 +50,7 @@ fun ChatScreen(
     thinkingText: String,
     attachedImage: Bitmap?,
     isTtsActive: Boolean = false,
+    downloadProgress: String? = null,
     onSendMessage: (String) -> Unit,
     onSendAudio: (ByteArray) -> Unit,
     onPickImage: () -> Unit,
@@ -132,6 +133,36 @@ fun ChatScreen(
         }
 
         HorizontalDivider(color = Color(0x1AFFFFFF), thickness = 1.dp)
+
+        // Model Download / Onboarding Progress Banner
+        if (!downloadProgress.isNullOrBlank()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.6f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color(0xFF38BDF8),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = downloadProgress,
+                        color = Color(0xFFF1F5F9),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+            }
+        }
 
         // Chat History List
         LazyColumn(

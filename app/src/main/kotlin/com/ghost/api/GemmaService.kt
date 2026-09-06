@@ -46,6 +46,7 @@ import com.ghost.api.mcp.MCPServer
 import com.ghost.api.hardware.SensorFusionManager
 import com.ghost.api.hardware.BatteryState
 import com.ghost.api.hardware.DeviceContext
+import com.ghost.api.logic.ContextManager
 
 /**
  * Background service that loads Gemma and runs API server
@@ -72,11 +73,13 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         fun onMessageAdded(message: String, isUser: Boolean, isComplete: Boolean = true)
         fun onThinkingStateChanged(isThinking: Boolean)
         fun onThoughtUpdated(thought: String)
+        fun onDownloadProgress(progressText: String?) {}
     }
     
     internal var uiCallback: UiCallback? = null
 
     internal val serviceScope = CoroutineScope(Dispatchers.Default + Job())
+    val modelDownloader: ModelDownloader by lazy { ModelDownloader(applicationContext, serviceScope) }
 
     // Mandatory Service implementation
     override fun onBind(intent: Intent?): IBinder? {
@@ -624,10 +627,12 @@ class GemmaService : Service(), AgentPlatformCallbacks {
                 downloadDir                  // Downloads folder
             )
             val modelFile = searchDirs.flatMap { dir ->
-                dir?.listFiles { _, name ->
-                    name.endsWith(".litertlm", ignoreCase = true) ||
-                    name.endsWith(".gguf", ignoreCase = true) ||
-                    name.endsWith(".nexa", ignoreCase = true)
+                dir?.listFiles { file ->
+                    val name = file.name
+                    (name.endsWith(".litertlm", ignoreCase = true) ||
+                     name.endsWith(".gguf", ignoreCase = true) ||
+                     name.endsWith(".nexa", ignoreCase = true)) &&
+                    file.length() > 200 * 1024 * 1024L // Must be > 200MB to avoid partial/corrupted downloads
                 }?.toList() ?: emptyList()
             }.sortedByDescending { file ->
                 val name = file.name.lowercase()
@@ -639,6 +644,7 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             }.firstOrNull()
 
             if (modelFile != null) {
+                uiCallback?.onDownloadProgress(null)
                 val variant = when {
                     modelFile.name.contains("E2B") -> "E2B (lite)"
                     else -> "unknown variant"
@@ -649,25 +655,30 @@ class GemmaService : Service(), AgentPlatformCallbacks {
             if (modelFile == null) {
                 val searchedPaths = searchDirs.mapNotNull { it?.absolutePath }
                 Timber.e("No model found! Searched: $searchedPaths")
-                updateNotification("Downloading E2B model fallback...")
+                updateNotification("Downloading E2B model...")
                 
-                val downloader = ModelDownloader(applicationContext, scope)
-                downloader.startDownload("litert-community/gemma-4-E2B-it-litert-lm", "gemma-4-E2B-it.litertlm")
+                modelDownloader.startDownload("litert-community/gemma-4-E2B-it-litert-lm", "gemma-4-E2B-it.litertlm")
                 
                 scope.launch {
                     try {
-                        downloader.downloadStatus.collect { state ->
+                        modelDownloader.downloadStatus.collect { state ->
                             when (state) {
                                 is ModelDownloader.DownloadState.Downloading -> {
-                                    updateNotification("Downloading E2B: ${state.progressPercent}%")
+                                    val mbDone = state.bytesDownloaded / 1024 / 1024
+                                    val mbTotal = state.totalBytes / 1024 / 1024
+                                    val text = "Downloading Weights: ${state.progressPercent}% (${mbDone}MB / ${mbTotal}MB)"
+                                    updateNotification(text)
+                                    uiCallback?.onDownloadProgress(text)
                                 }
                                 is ModelDownloader.DownloadState.Success -> {
                                     updateNotification("Download complete! Initializing...")
+                                    uiCallback?.onDownloadProgress(null)
                                     initialize()
                                     throw kotlinx.coroutines.CancellationException("Done")
                                 }
                                 is ModelDownloader.DownloadState.Error -> {
                                     updateNotification("Download failed: ${state.message}")
+                                    uiCallback?.onDownloadProgress("Download Error: ${state.message}")
                                     throw kotlinx.coroutines.CancellationException("Error")
                                 }
                                 else -> {}
@@ -850,6 +861,16 @@ class GemmaService : Service(), AgentPlatformCallbacks {
         if (userBackend == "OFF") {
             uiCallback?.onMessageAdded(query, isUser = true)
             uiCallback?.onMessageAdded("Inference Engine is set to OFF in Settings. Select AUTO, CPU, or GPU to enable on-device chat.", isUser = false)
+            return
+        }
+
+        val downloadState = modelDownloader.downloadStatus.value
+        if (downloadState is ModelDownloader.DownloadState.Downloading) {
+            uiCallback?.onMessageAdded(query, isUser = true)
+            val mbDone = downloadState.bytesDownloaded / 1024 / 1024
+            val mbTotal = downloadState.totalBytes / 1024 / 1024
+            val name = ContextManager.resolveDeviceCallSign(applicationContext)
+            uiCallback?.onMessageAdded("✧ $name is downloading neural weights (${downloadState.progressPercent}% • ${mbDone}MB / ${mbTotal}MB). Please wait for the download to finish! 📥", isUser = false)
             return
         }
 

@@ -24,6 +24,13 @@ class ChatViewModel : ViewModel() {
     private val _isTtsActive = MutableStateFlow(false)
     val isTtsActive: StateFlow<Boolean> = _isTtsActive.asStateFlow()
 
+    private val _downloadProgress = MutableStateFlow<String?>(null)
+    val downloadProgress: StateFlow<String?> = _downloadProgress.asStateFlow()
+
+    fun setDownloadProgress(progress: String?) {
+        _downloadProgress.value = progress
+    }
+
     fun setTtsActive(active: Boolean) {
         _isTtsActive.value = active
     }

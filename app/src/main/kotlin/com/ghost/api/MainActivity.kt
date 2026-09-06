@@ -62,11 +62,20 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             val binder = service as GemmaService.LocalBinder
-            gemmaService = binder.getService()
-            gemmaService?.uiCallback = this@MainActivity
+            val svc = binder.getService()
+            gemmaService = svc
+            svc.uiCallback = this@MainActivity
             isBound = true
+
+            val downloadState = svc.modelDownloader.downloadStatus.value
+            if (downloadState is ModelDownloader.DownloadState.Downloading) {
+                val mbDone = downloadState.bytesDownloaded / 1024 / 1024
+                val mbTotal = downloadState.totalBytes / 1024 / 1024
+                chatViewModel.setDownloadProgress("Downloading Weights: ${downloadState.progressPercent}% (${mbDone}MB / ${mbTotal}MB)")
+            }
+
             scope.launch {
-                gemmaService?.isSystemReady?.collect { ready ->
+                svc.isSystemReady.collect { ready ->
                     if (ready) loadHistoricalChat()
                 }
             }
@@ -129,6 +138,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                 val thinkingText by chatViewModel.thinkingText.collectAsState()
                 val attachedImage by chatViewModel.attachedImage.collectAsState()
                 val isTtsActive by chatViewModel.isTtsActive.collectAsState()
+                val downloadProgress by chatViewModel.downloadProgress.collectAsState()
 
                 ChatScreen(
                     messages = messages,
@@ -136,6 +146,7 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
                     thinkingText = thinkingText,
                     attachedImage = attachedImage,
                     isTtsActive = isTtsActive,
+                    downloadProgress = downloadProgress,
                     onSendMessage = { text ->
                         sendStagedMessage(text)
                     },
@@ -164,20 +175,23 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             }
         }
 
-        // Check overlay permission non-blockingly
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Overlay permission recommended for GHOST controls", Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-        }
-
         completeRitual()
+
+        // Request runtime permissions non-blockingly after initial frame layout
+        handler.postDelayed({
+            checkAndRequestPermissions()
+        }, 500)
     }
     
     override fun onResume() {
         super.onResume()
         completeRitual()
-        checkNotificationPermission()
-        checkCalendarPermissions()
+    }
+
+    override fun onDownloadProgress(progressText: String?) {
+        lifecycleScope.launch(Dispatchers.Main) {
+            chatViewModel.setDownloadProgress(progressText)
+        }
     }
 
     private fun completeRitual() {
@@ -567,6 +581,26 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             }
         }
 
+        // === SECTION: Permissions & Access ===
+        val cn = ComponentName(this, GemmaNotificationListener::class.java)
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        val isNotifEnabled = flat != null && flat.contains(cn.flattenToString())
+        val isOverlayEnabled = Settings.canDrawOverlays(this)
+
+        if (!isNotifEnabled) {
+            addActionRow("Grant Notification Listener Access") {
+                val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            }
+        }
+
+        if (!isOverlayEnabled) {
+            addActionRow("Grant System Overlay Access") {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
+        }
+
         // Build and show dialog
         val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
             .setView(root)
@@ -758,39 +792,36 @@ class MainActivity : ComponentActivity(), GemmaService.UiCallback {
             }
     }
 
-    private var hasPromptedForNotification = false
+    private var hasRequestedInitialPermissions = false
 
-    private val calendarPermissionLauncher = registerForActivityResult(
+    private val standardPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val granted = permissions[android.Manifest.permission.WRITE_CALENDAR] == true
-        if (granted) {
-            Timber.i("Calendar permissions granted for autonomous diary sync")
-        }
+        val recordAudioGranted = permissions[android.Manifest.permission.RECORD_AUDIO] ?: false
+        val writeCalendarGranted = permissions[android.Manifest.permission.WRITE_CALENDAR] ?: false
+        Timber.i("Standard permissions result - Audio: $recordAudioGranted, Calendar: $writeCalendarGranted")
     }
 
-    private fun checkCalendarPermissions() {
+    private fun checkAndRequestPermissions() {
+        if (hasRequestedInitialPermissions) return
+        hasRequestedInitialPermissions = true
+
+        val permissionsToRequest = mutableListOf<String>()
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(android.Manifest.permission.RECORD_AUDIO)
+        }
         if (checkSelfPermission(android.Manifest.permission.WRITE_CALENDAR) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            calendarPermissionLauncher.launch(
-                arrayOf(
-                    android.Manifest.permission.READ_CALENDAR,
-                    android.Manifest.permission.WRITE_CALENDAR
-                )
-            )
+            permissionsToRequest.add(android.Manifest.permission.READ_CALENDAR)
+            permissionsToRequest.add(android.Manifest.permission.WRITE_CALENDAR)
         }
-    }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
 
-    private fun checkNotificationPermission() {
-        val cn = ComponentName(this, GemmaNotificationListener::class.java)
-        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
-        val isEnabled = flat != null && flat.contains(cn.flattenToString())
-        
-        if (!isEnabled && !hasPromptedForNotification) {
-            hasPromptedForNotification = true
-            Toast.makeText(this, "Please grant Notification Access for context awareness.", Toast.LENGTH_LONG).show()
-            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
+        if (permissionsToRequest.isNotEmpty()) {
+            standardPermissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 
